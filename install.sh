@@ -399,7 +399,18 @@ case "${1:-help}" in
         curl -s http://localhost:4444/health | jq . 2>/dev/null || curl -s http://localhost:4444/health
         ;;
     identity)
-        curl -s http://localhost:4444/api/identity | jq . 2>/dev/null || curl -s http://localhost:4444/api/identity
+        curl -s http://localhost:4444/identity | jq . 2>/dev/null || curl -s http://localhost:4444/identity
+        ;;
+    init)
+        echo "Initializing identity..."
+        result=$(curl -s -X POST http://localhost:4444/identity/init)
+        if echo "$result" | grep -q '"ok":true'; then
+            echo "Identity initialized successfully!"
+            echo "$result" | jq . 2>/dev/null || echo "$result"
+        else
+            echo "$result" | jq . 2>/dev/null || echo "$result"
+            exit 1
+        fi
         ;;
     pair)
         echo "Starting pairing..."
@@ -475,6 +486,7 @@ case "${1:-help}" in
         echo "  config    Show configuration paths"
         echo "  health    Check daemon health"
         echo "  identity  Show identity and pairing status"
+        echo "  init      Initialize identity (required before pairing)"
         echo "  pair      Start pairing flow"
         echo ""
         echo "TUI:"
@@ -540,6 +552,30 @@ start_daemon() {
     done
     
     fatal "Daemon failed to start. Check logs with: hecate logs"
+}
+
+# -----------------------------------------------------------------------------
+# Identity Initialization
+# -----------------------------------------------------------------------------
+
+init_identity() {
+    section "Initializing Identity"
+
+    info "Creating agent identity..."
+    local result
+    result=$(curl -s -X POST http://localhost:4444/identity/init)
+
+    if echo "$result" | grep -q '"ok":true'; then
+        local mri
+        mri=$(echo "$result" | jq -r '.mri // empty')
+        ok "Identity created: ${mri}"
+    elif echo "$result" | grep -q 'already_initialized'; then
+        ok "Identity already exists"
+    else
+        error "Failed to initialize identity:"
+        echo "$result" | jq . 2>/dev/null || echo "$result"
+        warn "Continuing anyway..."
+    fi
 }
 
 # -----------------------------------------------------------------------------
@@ -764,7 +800,8 @@ main() {
     install_skills
     setup_path
     start_daemon
-    
+    init_identity
+
     # Run pairing (optional - don't fail install if pairing fails)
     if run_pairing; then
         PAIRING_SUCCESS=true
