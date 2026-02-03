@@ -119,19 +119,27 @@ download_file() {
 # Banner
 # -----------------------------------------------------------------------------
 
-show_banner() {
-    echo -e "${CYAN}${BOLD}"
-    cat << 'EOF'
-    __  __              __
-   / / / /__  _______ _/ /____
-  / /_/ / _ \/ __/ _ `/ __/ -_)
- /_//_/\___/\__/\_,_/\__/\__/
+# Hecate avatar art (base64-encoded, generated from avatar.jpg using chafa)
+HECATE_AVATAR_B64="G1swbRtbMzg7NTsxNjs0ODs1OzE2bSAbWzM4OzU7MjMybV8bWzQ4OzU7MjMybSAgIBtbMzg7NTsyMzNtXxtbNDg7NTsyMzNtICAgG1szODs1OzIzNzs0ODs1OzIzNG15G1szODs1OzhteRtbMzg7NTsyMzY7NDg7NTsyMzNtXyAgG1szODs1OzIzMzs0ODs1OzIzMm1fXyAgG1s0ODs1OzE2bSAgG1swbQobWzM4OzU7MjMyOzQ4OzU7MjMybSAgG1s0ODs1OzIzM21gG1szODs1OzE3Mjs0ODs1OzU4bV8bWzM4OzU7MjMzOzQ4OzU7MjM0bWAbWzQ4OzU7MjMzbSAgIBtbMzg7NTsyMzk7NDg7NTsyMzZtLxtbMzg7NTsyMzNteRtbNDg7NTsyMzVteRtbMzg7NTs4OzQ4OzU7MjM2bVIbWzM4OzU7MjMzOzQ4OzU7MjM0bWAbWzQ4OzU7MjMzbSAgIBtbMzg7NTsxMzA7NDg7NTsyMzVtZxtbMzg7NTsyMzM7NDg7NTsyMzJtXyAbWzM4OzU7MjMyOzQ4OzU7MTZtXxtbMG0KG1szODs1OzIzMjs0ODs1OzIzMm0gG1s0ODs1OzIzM20gG1szODs1OzIzMzs0ODs1OzIzNW0nG1szODs1OzEzNzs0ODs1OzE3OW1IG1szODs1OzIzMzs0ODs1OzIzNW1gG1s0ODs1OzIzNG0gIBtbMzg7NTsyMzdtLBtbMzg7NTsyMzY7NDg7NTsyMzNtfhtbMzg7NTsyMzltYBtbMzg7NTsyMzU7NDg7NTsyMzRtIhtbMzg7NTsyMzg7NDg7NTsyMzNtYBtbMzg7NTsyMzc7NDg7NTsyMzVtaRtbNDg7NTsyMzRtICAbWzM4OzU7MjMzOzQ4OzU7MjM2bWAbWzM4OzU7MTY2OzQ4OzU7MTc5bX4bWzM4OzU7MjMzOzQ4OzU7MjM0bWAbWzQ4OzU7MjMybUwgG1swbQobWzM4OzU7MjMyOzQ4OzU7MjMybSAbWzM4OzU7MjMzbX4bWzQ4OzU7MjM0bScbWzM4OzU7MTczOzQ4OzU7MjM3bX4bWzQ4OzU7MjM0bSAgG1szODs1OzIzNjs0ODs1OzIzNW14G1szODs1OzIzNTs0ODs1OzIzNG1+G1s0ODs1OzIzMm0gG1szODs1OzE2bWAbWzM4OzU7MjM5bV8bWzQ4OzU7MTZtIBtbMzg7NTsyMzI7NDg7NTsyMzVtOhtbMzg7NTsxNDQ7NDg7NTsyMzdtXxtbNDg7NTsyMzRtICAbWzM4OzU7MTczOzQ4OzU7NThtfhtbMzg7NTsyMzI7NDg7NTsyMzRtLhtbNDg7NTsyMzJtICAbWzBtChtbMzg7NTsyMzI7NDg7NTsyMzJtICAbWzM4OzU7MjMzbX4gG1s0ODs1OzIzM20gG1s0ODs1OzIzNG06G1s0ODs1OzIzNW06G1szODs1OzIzNDs0ODs1OzIzNm1fG1szODs1OzIzODs0ODs1OzIzM209G1szODs1OzhtYBtbMzg7NTsyNDBtYCAbWzM4OzU7MjM5OzQ4OzU7MjM3bTQbWzM4OzU7MTAxOzQ4OzU7MjM5bX4bWzM4OzU7MjM5OzQ4OzU7MjM2bUwbWzQ4OzU7MjMzbSAbWzM4OzU7MjMzOzQ4OzU7MjMybVtgICAbWzBtChtbMzg7NTsxNjs0ODs1OzIzMm1MIBtbMzg7NTsyMzNtNBtbMzg7NTsyMzI7NDg7NTsyMzNtWyAbWzQ4OzU7MjM0bSAbWzM4OzU7MjM0OzQ4OzU7MjMybX4bWzM4OzU7MjMzOzQ4OzU7MTZtYBtbMzg7NTsxNjs0ODs1OzIzMm1gG1s0ODs1OzIzM20gG1szODs1OzIzMm06G1szODs1OzIzMzs0ODs1OzIzMm1+G1s0ODs1OzIzM20gG1szODs1OzIzNW0iG1szODs1OzIzNjs0ODs1OzIzNG0iG1s0ODs1OzIzM20gG1szODs1OzIzMm1qeRtbNDg7NTsyMzJtIBtbNDg7NTsxNm1GG1swbQobWzM4OzU7MTY7NDg7NTsxNm0gG1s0ODs1OzIzMm0gIEkbWzQ4OzU7MjMzbSAbWzM4OzU7MjMzOzQ4OzU7MjMybT8bWzQ4OzU7MTZtICAgG1s0ODs1OzIzM20gG1szODs1OzE2bTobWzQ4OzU7MjMybSAgG1szODs1OzIzM21bIBtbMzg7NTsyMzI7NDg7NTsyMzNtdxtbNDg7NTsyMzJtICAgG1s0ODs1OzE2bSAbWzBtChtbMzg7NTsxNjs0ODs1OzE2bSAbWzQ4OzU7MjMybSAgSRtbMzg7NTsyMzNtYCAbWzQ4OzU7MTZtICAgG1szODs1OzIzNDs0ODs1OzIzM21gG1szODs1OzIzN20uG1s0ODs1OzIzMm0gICAbWzM4OzU7MjMzbWBgG1szODs1OzE2bV0gIBtbNDg7NTsxNm0gG1swbQobWzM4OzU7MTY7NDg7NTsxNm0gG1szODs1OzIzMm1gG1s0ODs1OzIzMm0gG1szODs1OzE2bTF5G1s0ODs1OzE2bSAgICAgG1szODs1OzIzNDs0ODs1OzIzMm0nG1s0ODs1OzE2bSAgG1szODs1OzIzMm0iIBtbMzg7NTsxNjs0ODs1OzIzMm1fJHkbWzQ4OzU7MTZtICAbWzBtChtbN20bWzM4OzU7MTZtIBtbMG0bWzM4OzU7MTs0ODs1OzE2bSAgICAgICAgIBtbMzg7NTsyMzM7NDg7NTsyMzJtYBtbMzg7NTsyMzI7NDg7NTsxNm1MICAgICAgICAbWzBtCg=="
 
-EOF
-    echo -e "${NC}"
-    echo -e "${BOLD}Hecate Node Installer${NC}"
-    echo -e "${DIM}Mesh networking for AI agents${NC}"
-    echo ""
+show_banner() {
+    # Show colored avatar if terminal supports it
+    if [ -t 1 ] && [ "${TERM:-}" != "dumb" ]; then
+        echo ""
+        echo "$HECATE_AVATAR_B64" | base64 -d 2>/dev/null || true
+        echo ""
+        echo -e "${MAGENTA}${BOLD}    H E C A T E${NC}"
+        echo -e "${DIM}    Goddess of crossroads. Keeper of keys.${NC}"
+        echo ""
+    else
+        # Fallback for non-color terminals
+        echo ""
+        echo "    🗝️  H E C A T E  🗝️"
+        echo ""
+        echo "    Hecate Node Installer"
+        echo "    Mesh networking for AI agents"
+        echo ""
+    fi
 }
 
 # -----------------------------------------------------------------------------
@@ -642,12 +650,12 @@ setup_path() {
 # -----------------------------------------------------------------------------
 
 show_summary() {
-    section "Installation Complete"
+    section "🔥🗝️🔥 Installation Complete"
 
     local local_ip
     local_ip=$(get_local_ip)
 
-    echo -e "${GREEN}${BOLD}Hecate is ready!${NC}"
+    echo -e "${GREEN}${BOLD}The goddess has arrived.${NC}"
     echo ""
     
     # Show pairing status
