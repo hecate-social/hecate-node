@@ -349,7 +349,7 @@ show_summary() {
     fi
 
     echo "To reinstall Hecate:"
-    echo -e "  ${CYAN}curl -fsSL https://hecate.social/install.sh | bash${NC}"
+    echo -e "  ${CYAN}curl -fsSL https://macula.io/hecate/install.sh | bash${NC}"
     echo ""
 }
 

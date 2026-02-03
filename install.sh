@@ -19,7 +19,7 @@ HECATE_VERSION="${HECATE_VERSION:-latest}"
 INSTALL_DIR="${HECATE_INSTALL_DIR:-$HOME/.hecate}"
 BIN_DIR="${HECATE_BIN_DIR:-$HOME/.local/bin}"
 REPO_BASE="https://github.com/hecate-social"
-RAW_BASE="https://raw.githubusercontent.com/hecate-social/hecate-node/main"
+RAW_BASE="https://macula.io/hecate"
 
 # Flags
 SKIP_AI=false

@@ -5,7 +5,7 @@ One-command installer for the complete Hecate stack with intelligent hardware de
 ## Quick Install
 
 ```bash
-curl -fsSL https://hecate.social/install.sh | bash
+curl -fsSL https://macula.io/hecate/install.sh | bash
 ```
 
 ## Node Roles
@@ -45,32 +45,32 @@ You can select multiple roles by entering numbers separated by spaces
 
 **Developer Workstation** - For writing and testing agents:
 ```bash
-curl -fsSL https://hecate.social/install.sh | bash -s -- --role=workstation
+curl -fsSL https://macula.io/hecate/install.sh | bash -s -- --role=workstation
 ```
 
 **Services Node** - Headless server hosting capabilities:
 ```bash
-curl -fsSL https://hecate.social/install.sh | bash -s -- --role=services
+curl -fsSL https://macula.io/hecate/install.sh | bash -s -- --role=services
 ```
 
 **AI Server** - Dedicated AI model server:
 ```bash
-curl -fsSL https://hecate.social/install.sh | bash -s -- --role=ai
+curl -fsSL https://macula.io/hecate/install.sh | bash -s -- --role=ai
 ```
 
 **AI + Workstation** - Dev machine that also serves AI:
 ```bash
-curl -fsSL https://hecate.social/install.sh | bash -s -- --role=ai,workstation
+curl -fsSL https://macula.io/hecate/install.sh | bash -s -- --role=ai,workstation
 ```
 
 **Services + AI** - Server that hosts capabilities AND serves AI:
 ```bash
-curl -fsSL https://hecate.social/install.sh | bash -s -- --role=services,ai
+curl -fsSL https://macula.io/hecate/install.sh | bash -s -- --role=services,ai
 ```
 
 **Full Stack** - Everything:
 ```bash
-curl -fsSL https://hecate.social/install.sh | bash -s -- --role=full
+curl -fsSL https://macula.io/hecate/install.sh | bash -s -- --role=full
 ```
 
 ## Features
@@ -103,20 +103,20 @@ When sudo is needed (Ollama install, systemd service), the installer:
 
 ```bash
 # Interactive (recommended)
-curl -fsSL https://hecate.social/install.sh | bash
+curl -fsSL https://macula.io/hecate/install.sh | bash
 
 # Single role
-curl -fsSL https://hecate.social/install.sh | bash -s -- --role=workstation
+curl -fsSL https://macula.io/hecate/install.sh | bash -s -- --role=workstation
 
 # Combined roles
-curl -fsSL https://hecate.social/install.sh | bash -s -- --role=ai,workstation
-curl -fsSL https://hecate.social/install.sh | bash -s -- --role=services,ai
+curl -fsSL https://macula.io/hecate/install.sh | bash -s -- --role=ai,workstation
+curl -fsSL https://macula.io/hecate/install.sh | bash -s -- --role=services,ai
 
 # Skip AI setup
-curl -fsSL https://hecate.social/install.sh | bash -s -- --no-ai
+curl -fsSL https://macula.io/hecate/install.sh | bash -s -- --no-ai
 
 # Non-interactive (CI/automation)
-curl -fsSL https://hecate.social/install.sh | bash -s -- --headless --role=services
+curl -fsSL https://macula.io/hecate/install.sh | bash -s -- --headless --role=services
 ```
 
 ## What Gets Installed
@@ -214,7 +214,7 @@ The installer clearly explains each sudo requirement and asks for confirmation.
 ## Uninstall
 
 ```bash
-curl -fsSL https://hecate.social/uninstall.sh | bash
+curl -fsSL https://macula.io/hecate/uninstall.sh | bash
 ```
 
 Or manually:
