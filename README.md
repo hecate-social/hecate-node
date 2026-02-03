@@ -1,6 +1,6 @@
 # Hecate Node
 
-One-command installer for the complete Hecate stack.
+One-command installer for the complete Hecate stack with intelligent hardware detection and optional AI model setup.
 
 ## Quick Install
 
@@ -15,7 +15,34 @@ curl -fsSL https://hecate.social/install.sh | bash
 | **Hecate Daemon** | Erlang mesh network daemon (port 4444) |
 | **Hecate TUI** | Terminal UI for monitoring and management |
 | **Hecate Skills** | Claude Code integration for mesh operations |
-| **BEAM Runtime** | Erlang OTP 27+ and Elixir 1.18+ (via mise/asdf) |
+| **AI Model** | Optional local code generation model (Ollama) |
+
+## Features
+
+### Intelligent Hardware Detection
+
+The installer automatically detects:
+- **RAM** - Recommends appropriate model size
+- **CPU cores** - Configures concurrency
+- **AVX2 support** - Optimizes inference performance
+- **GPU** - Enables acceleration (NVIDIA, AMD, Apple Silicon)
+
+### AI Model Options
+
+The installer offers three choices:
+
+1. **Local Ollama** - Install Ollama and a recommended code model
+2. **Remote Server** - Connect to an existing Ollama server on your network
+3. **Skip** - No AI setup (can configure later)
+
+Recommended models based on hardware:
+
+| RAM | Recommended Model | Size |
+|-----|------------------|------|
+| 32GB+ with GPU | codellama:7b-code | ~4GB |
+| 16GB+ | deepseek-coder:6.7b | ~4GB |
+| 8GB+ | deepseek-coder:1.3b | ~1GB |
+| 4GB+ | tinyllama | ~700MB |
 
 ## Installation Paths
 
@@ -24,7 +51,24 @@ curl -fsSL https://hecate.social/install.sh | bash
 | `~/.local/bin/hecate` | Daemon binary |
 | `~/.local/bin/hecate-tui` | TUI binary |
 | `~/.hecate/` | Data directory (config, logs, state) |
+| `~/.hecate/config/hecate.toml` | Configuration file |
 | `~/.claude/HECATE_SKILLS.md` | Claude Code skills |
+
+## Installation Options
+
+```bash
+# Standard interactive install
+curl -fsSL https://hecate.social/install.sh | bash
+
+# Skip AI model setup
+curl -fsSL https://hecate.social/install.sh | bash -s -- --no-ai
+
+# Non-interactive (use defaults)
+curl -fsSL https://hecate.social/install.sh | bash -s -- --headless
+
+# Show help
+curl -fsSL https://hecate.social/install.sh | bash -s -- --help
+```
 
 ## Post-Install: Pairing
 
@@ -34,11 +78,46 @@ After installation, pair your node with the mesh:
 # Start the daemon
 hecate start
 
-# Run pairing (shows QR code)
+# Open the TUI
+hecate-tui
+
+# Run pairing (first time)
 hecate-tui pair
 ```
 
-Scan the QR code with the Hecate mobile app or visit the displayed URL.
+## Configuration
+
+Edit `~/.hecate/config/hecate.toml`:
+
+```toml
+[daemon]
+api_port = 4444
+api_host = "127.0.0.1"
+
+[mesh]
+bootstrap = ["boot.macula.io:4433"]
+realm = "io.macula"
+
+[logging]
+level = "info"
+
+# AI model (if configured)
+[ai]
+provider = "ollama"
+endpoint = "http://localhost:11434"
+model = "deepseek-coder:1.3b"
+```
+
+### Remote AI Server
+
+To use a remote Ollama server instead of local:
+
+```toml
+[ai]
+provider = "ollama"
+endpoint = "http://192.168.1.100:11434"
+model = "codellama:7b-code"
+```
 
 ## Environment Variables
 
@@ -48,22 +127,41 @@ Scan the QR code with the Hecate mobile app or visit the displayed URL.
 | `HECATE_INSTALL_DIR` | Data directory | `~/.hecate` |
 | `HECATE_BIN_DIR` | Binary directory | `~/.local/bin` |
 
+## Sudo Requirements
+
+The installer only requires sudo for one optional component:
+
+**Ollama installation** (if selected):
+- Installs binary to `/usr/local/bin/ollama`
+- Creates systemd service for background operation
+
+The installer clearly explains what sudo access is needed for and prompts for confirmation. You can skip Ollama and use a remote server instead.
+
 ## Manual Installation
 
 If you prefer manual installation:
 
 ```bash
-# 1. Install BEAM runtime
-mise install erlang@27 elixir@1.18
+# 1. Download daemon (self-contained, includes Erlang runtime)
+curl -fsSL https://github.com/hecate-social/hecate-daemon/releases/latest/download/hecate-daemon-linux-amd64 -o ~/.local/bin/hecate
+chmod +x ~/.local/bin/hecate
 
-# 2. Download daemon
-curl -fsSL https://github.com/hecate-social/hecate-daemon/releases/latest/download/hecate-linux-amd64.tar.gz | tar xz -C ~/.local/bin
-
-# 3. Download TUI
+# 2. Download TUI
 curl -fsSL https://github.com/hecate-social/hecate-tui/releases/latest/download/hecate-tui-linux-amd64.tar.gz | tar xz -C ~/.local/bin
 
-# 4. Download skills
+# 3. Download skills
+mkdir -p ~/.claude
 curl -fsSL https://raw.githubusercontent.com/hecate-social/hecate-node/main/SKILLS.md -o ~/.claude/HECATE_SKILLS.md
+
+# 4. Create config
+mkdir -p ~/.hecate/config
+cat > ~/.hecate/config/hecate.toml << 'EOF'
+[daemon]
+api_port = 4444
+
+[mesh]
+bootstrap = ["boot.macula.io:4433"]
+EOF
 ```
 
 ## Uninstall
@@ -83,8 +181,9 @@ rm ~/.claude/HECATE_SKILLS.md
 ## Requirements
 
 - Linux (x86_64, arm64) or macOS (arm64, x86_64)
-- curl, tar, git
+- curl, tar
 - Terminal with 256 color support (for TUI)
+- 4GB+ RAM (for AI models, optional)
 
 ## Components
 
