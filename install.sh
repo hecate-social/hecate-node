@@ -675,7 +675,7 @@ setup_path() {
 
         # Determine shell profile
         local shell_profile=""
-        if [ -n "$ZSH_VERSION" ] || [ -f "$HOME/.zshrc" ]; then
+        if [ -n "${ZSH_VERSION:-}" ] || [ -f "$HOME/.zshrc" ]; then
             shell_profile="$HOME/.zshrc"
         elif [ -f "$HOME/.bashrc" ]; then
             shell_profile="$HOME/.bashrc"
