@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 700">
+  <defs>
+    <linearGradient id="stepGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#1e3a5f;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0f2940;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="successGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#1e5631;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0f3318;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="700" fill="#0a0a0f"/>
+
+  <!-- Title -->
+  <text x="400" y="40" text-anchor="middle" fill="#e94560" font-family="monospace" font-size="20" font-weight="bold">Hecate Node Install Flow</text>
+  <text x="400" y="65" text-anchor="middle" fill="#888" font-family="monospace" font-size="12">curl -fsSL install.hecate.social | bash</text>
+
+  <!-- Step 1: Hardware Detection -->
+  <rect x="50" y="90" width="300" height="90" rx="8" fill="url(#stepGrad)" stroke="#f39c12" stroke-width="2"/>
+  <circle cx="80" cy="120" r="18" fill="#f39c12"/>
+  <text x="80" y="125" text-anchor="middle" fill="#0a0a0f" font-family="monospace" font-size="14" font-weight="bold">1</text>
+  <text x="210" y="120" text-anchor="middle" fill="#f39c12" font-family="monospace" font-size="13" font-weight="bold">Hardware Detection</text>
+  <text x="210" y="145" text-anchor="middle" fill="#f9e79f" font-family="monospace" font-size="10">RAM, CPU cores, GPU</text>
+  <text x="210" y="165" text-anchor="middle" fill="#f9e79f" font-family="monospace" font-size="10">Storage paths (/bulk0, /fast)</text>
+
+  <!-- Step 2: Node Role Selection -->
+  <rect x="450" y="90" width="300" height="90" rx="8" fill="url(#stepGrad)" stroke="#9b59b6" stroke-width="2"/>
+  <circle cx="480" cy="120" r="18" fill="#9b59b6"/>
+  <text x="480" y="125" text-anchor="middle" fill="#0a0a0f" font-family="monospace" font-size="14" font-weight="bold">2</text>
+  <text x="610" y="120" text-anchor="middle" fill="#9b59b6" font-family="monospace" font-size="13" font-weight="bold">Node Role Selection</text>
+  <text x="610" y="145" text-anchor="middle" fill="#d4a5ff" font-family="monospace" font-size="10">standalone | cluster | bootstrap</text>
+  <text x="610" y="165" text-anchor="middle" fill="#d4a5ff" font-family="monospace" font-size="10">Interactive prompt</text>
+
+  <!-- Arrow 1->2 -->
+  <path d="M 350 135 L 450 135" stroke="#888" stroke-width="2" fill="none" marker-end="url(#arrowGray)"/>
+
+  <!-- Step 3: Ollama Installation -->
+  <rect x="50" y="210" width="300" height="90" rx="8" fill="url(#stepGrad)" stroke="#3498db" stroke-width="2"/>
+  <circle cx="80" cy="240" r="18" fill="#3498db"/>
+  <text x="80" y="245" text-anchor="middle" fill="#0a0a0f" font-family="monospace" font-size="14" font-weight="bold">3</text>
+  <text x="210" y="240" text-anchor="middle" fill="#3498db" font-family="monospace" font-size="13" font-weight="bold">Ollama Installation</text>
+  <text x="210" y="265" text-anchor="middle" fill="#85c1e9" font-family="monospace" font-size="10">Download + systemd service</text>
+  <text x="210" y="285" text-anchor="middle" fill="#85c1e9" font-family="monospace" font-size="10">Model storage: /bulk0/ollama</text>
+
+  <!-- Step 4: Model Selection -->
+  <rect x="450" y="210" width="300" height="90" rx="8" fill="url(#stepGrad)" stroke="#1abc9c" stroke-width="2"/>
+  <circle cx="480" cy="240" r="18" fill="#1abc9c"/>
+  <text x="480" y="245" text-anchor="middle" fill="#0a0a0f" font-family="monospace" font-size="14" font-weight="bold">4</text>
+  <text x="610" y="240" text-anchor="middle" fill="#1abc9c" font-family="monospace" font-size="13" font-weight="bold">Model Selection</text>
+  <text x="610" y="265" text-anchor="middle" fill="#76d7c4" font-family="monospace" font-size="10">RAM-based recommendations</text>
+  <text x="610" y="285" text-anchor="middle" fill="#76d7c4" font-family="monospace" font-size="10">llama3.2, qwen2.5, deepseek</text>
+
+  <!-- Arrow 2->3 -->
+  <path d="M 600 180 L 200 210" stroke="#888" stroke-width="2" fill="none" marker-end="url(#arrowGray)"/>
+
+  <!-- Arrow 3->4 -->
+  <path d="M 350 255 L 450 255" stroke="#888" stroke-width="2" fill="none" marker-end="url(#arrowGray)"/>
+
+  <!-- Step 5: Daemon Download -->
+  <rect x="50" y="330" width="300" height="90" rx="8" fill="url(#stepGrad)" stroke="#e74c3c" stroke-width="2"/>
+  <circle cx="80" cy="360" r="18" fill="#e74c3c"/>
+  <text x="80" y="365" text-anchor="middle" fill="#0a0a0f" font-family="monospace" font-size="14" font-weight="bold">5</text>
+  <text x="210" y="360" text-anchor="middle" fill="#e74c3c" font-family="monospace" font-size="13" font-weight="bold">Daemon Download</text>
+  <text x="210" y="385" text-anchor="middle" fill="#f1948a" font-family="monospace" font-size="10">Self-extracting tarball</text>
+  <text x="210" y="405" text-anchor="middle" fill="#f1948a" font-family="monospace" font-size="10">/opt/hecate/bin/hecate</text>
+
+  <!-- Step 6: Configuration -->
+  <rect x="450" y="330" width="300" height="90" rx="8" fill="url(#stepGrad)" stroke="#f39c12" stroke-width="2"/>
+  <circle cx="480" cy="360" r="18" fill="#f39c12"/>
+  <text x="480" y="365" text-anchor="middle" fill="#0a0a0f" font-family="monospace" font-size="14" font-weight="bold">6</text>
+  <text x="610" y="360" text-anchor="middle" fill="#f39c12" font-family="monospace" font-size="13" font-weight="bold">Configuration</text>
+  <text x="610" y="385" text-anchor="middle" fill="#f9e79f" font-family="monospace" font-size="10">sys.config with hardware info</text>
+  <text x="610" y="405" text-anchor="middle" fill="#f9e79f" font-family="monospace" font-size="10">vm.args, environment</text>
+
+  <!-- Arrow 4->5 -->
+  <path d="M 600 300 L 200 330" stroke="#888" stroke-width="2" fill="none" marker-end="url(#arrowGray)"/>
+
+  <!-- Arrow 5->6 -->
+  <path d="M 350 375 L 450 375" stroke="#888" stroke-width="2" fill="none" marker-end="url(#arrowGray)"/>
+
+  <!-- Step 7: Service Registration -->
+  <rect x="50" y="450" width="300" height="90" rx="8" fill="url(#stepGrad)" stroke="#9b59b6" stroke-width="2"/>
+  <circle cx="80" cy="480" r="18" fill="#9b59b6"/>
+  <text x="80" y="485" text-anchor="middle" fill="#0a0a0f" font-family="monospace" font-size="14" font-weight="bold">7</text>
+  <text x="210" y="480" text-anchor="middle" fill="#9b59b6" font-family="monospace" font-size="13" font-weight="bold">Service Registration</text>
+  <text x="210" y="505" text-anchor="middle" fill="#d4a5ff" font-family="monospace" font-size="10">systemd unit: hecate.service</text>
+  <text x="210" y="525" text-anchor="middle" fill="#d4a5ff" font-family="monospace" font-size="10">Auto-start on boot</text>
+
+  <!-- Step 8: Verification -->
+  <rect x="450" y="450" width="300" height="90" rx="8" fill="url(#successGrad)" stroke="#2ecc71" stroke-width="2"/>
+  <circle cx="480" cy="480" r="18" fill="#2ecc71"/>
+  <text x="480" y="485" text-anchor="middle" fill="#0a0a0f" font-family="monospace" font-size="14" font-weight="bold">8</text>
+  <text x="610" y="480" text-anchor="middle" fill="#2ecc71" font-family="monospace" font-size="13" font-weight="bold">Verification</text>
+  <text x="610" y="505" text-anchor="middle" fill="#82e0aa" font-family="monospace" font-size="10">Health check: /api/health</text>
+  <text x="610" y="525" text-anchor="middle" fill="#82e0aa" font-family="monospace" font-size="10">Model check: /api/llm/models</text>
+
+  <!-- Arrow 6->7 -->
+  <path d="M 600 420 L 200 450" stroke="#888" stroke-width="2" fill="none" marker-end="url(#arrowGray)"/>
+
+  <!-- Arrow 7->8 -->
+  <path d="M 350 495 L 450 495" stroke="#888" stroke-width="2" fill="none" marker-end="url(#arrowGray)"/>
+
+  <!-- Final status box -->
+  <rect x="200" y="580" width="400" height="80" rx="10" fill="url(#successGrad)" stroke="#2ecc71" stroke-width="3"/>
+  <text x="400" y="615" text-anchor="middle" fill="#2ecc71" font-family="monospace" font-size="16" font-weight="bold">Installation Complete</text>
+  <text x="400" y="640" text-anchor="middle" fill="#82e0aa" font-family="monospace" font-size="11">Daemon running on :4444 | Mesh connected | LLM ready</text>
+
+  <!-- Arrow 8->Final -->
+  <path d="M 600 540 L 500 580" stroke="#2ecc71" stroke-width="2" fill="none" marker-end="url(#arrowGreen)"/>
+
+  <!-- Arrow markers -->
+  <defs>
+    <marker id="arrowGray" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#888"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#2ecc71"/>
+    </marker>
+  </defs>
+</svg>
