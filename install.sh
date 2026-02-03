@@ -39,6 +39,8 @@ DETECTED_CPU_CORES=0
 DETECTED_HAS_AVX2=false
 DETECTED_HAS_GPU=false
 DETECTED_GPU_TYPE=""
+DETECTED_STORAGE_GB=0
+DETECTED_STORAGE_PATH=""
 SUGGESTED_ROLE=""
 
 # Colors
@@ -209,6 +211,27 @@ detect_hardware() {
         fi
     fi
 
+    # Detect storage - find best location for models
+    # Priority: /bulk0 (HDD for large models), then $HOME
+    if [ "$os" = "linux" ]; then
+        if [ -d "/bulk0" ] && df /bulk0 &>/dev/null; then
+            # Beam cluster style - use /bulk for models
+            DETECTED_STORAGE_GB=$(df -BG /bulk0 2>/dev/null | awk 'NR==2 {gsub(/G/,"",$4); print $4}' || echo "0")
+            DETECTED_STORAGE_PATH="/bulk0"
+        elif [ -d "/fast" ] && df /fast &>/dev/null; then
+            # NVMe available
+            DETECTED_STORAGE_GB=$(df -BG /fast 2>/dev/null | awk 'NR==2 {gsub(/G/,"",$4); print $4}' || echo "0")
+            DETECTED_STORAGE_PATH="/fast"
+        else
+            # Default to home directory
+            DETECTED_STORAGE_GB=$(df -BG "$HOME" 2>/dev/null | awk 'NR==2 {gsub(/G/,"",$4); print $4}' || echo "0")
+            DETECTED_STORAGE_PATH="$HOME"
+        fi
+    elif [ "$os" = "darwin" ]; then
+        DETECTED_STORAGE_GB=$(df -g "$HOME" 2>/dev/null | awk 'NR==2 {print $4}' || echo "0")
+        DETECTED_STORAGE_PATH="$HOME"
+    fi
+
     # Display results
     echo -e "  ${BOLD}RAM:${NC}        ${DETECTED_RAM_GB} GB"
     echo -e "  ${BOLD}CPU Cores:${NC}  ${DETECTED_CPU_CORES}"
@@ -218,6 +241,21 @@ detect_hardware() {
     else
         echo -e "  ${BOLD}GPU:${NC}        None detected"
     fi
+    # Storage info with model capacity hints
+    local storage_hint=""
+    if [ "$DETECTED_STORAGE_GB" -ge 100 ]; then
+        storage_hint="${GREEN}(can fit 70B+ models)${NC}"
+    elif [ "$DETECTED_STORAGE_GB" -ge 50 ]; then
+        storage_hint="${GREEN}(can fit 30B models)${NC}"
+    elif [ "$DETECTED_STORAGE_GB" -ge 20 ]; then
+        storage_hint="${YELLOW}(can fit 7B models)${NC}"
+    elif [ "$DETECTED_STORAGE_GB" -ge 5 ]; then
+        storage_hint="${YELLOW}(limited - small models only)${NC}"
+    else
+        storage_hint="${RED}(very limited)${NC}"
+    fi
+    echo -e "  ${BOLD}Storage:${NC}    ${DETECTED_STORAGE_GB} GB free ${storage_hint}"
+    echo -e "              ${DIM}${DETECTED_STORAGE_PATH}${NC}"
 
     # Suggest best role based on hardware
     suggest_role
@@ -578,6 +616,12 @@ services:
       - HECATE_API_PORT=4444
       - HECATE_BOOTSTRAP=boot.macula.io:443
       - HECATE_REALM=io.macula
+      # LLM backend - connect to Ollama on host
+      - OLLAMA_HOST=http://host.docker.internal:11434
+    extra_hosts:
+      # Allow container to reach host's localhost (for Ollama)
+      # Works on Docker Desktop (Mac/Win) and Linux with Docker 20.10+
+      - "host.docker.internal:host-gateway"
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:4444/health"]
       interval: 30s
@@ -786,6 +830,44 @@ case "${1:-help}" in
             esac
         done
         ;;
+    llm)
+        # LLM subcommands
+        case "${2:-help}" in
+            models)
+                curl -s http://localhost:4444/api/llm/models
+                ;;
+            health)
+                curl -s http://localhost:4444/api/llm/health
+                ;;
+            chat)
+                # Simple chat - read from args or stdin
+                model="${3:-llama3.2}"
+                if [ -n "${4:-}" ]; then
+                    # Message provided as argument
+                    message="$4"
+                else
+                    echo "Enter message (Ctrl+D to send):"
+                    message=$(cat)
+                fi
+                curl -s -X POST http://localhost:4444/api/llm/chat \
+                    -H "Content-Type: application/json" \
+                    -d "{\"model\":\"${model}\",\"messages\":[{\"role\":\"user\",\"content\":\"${message}\"}]}"
+                ;;
+            *)
+                echo "LLM Commands:"
+                echo ""
+                echo "  hecate llm models        List available models"
+                echo "  hecate llm health        Check LLM backend status"
+                echo "  hecate llm chat [model] [message]"
+                echo "                           Chat with model (default: llama3.2)"
+                echo ""
+                echo "Examples:"
+                echo "  hecate llm models"
+                echo "  hecate llm chat llama3.2 'Hello!'"
+                echo "  echo 'Explain AI' | hecate llm chat"
+                ;;
+        esac
+        ;;
     *)
         echo "Hecate - Mesh networking for AI agents"
         echo ""
@@ -803,6 +885,11 @@ case "${1:-help}" in
         echo "  identity  Show identity and pairing status"
         echo "  init      Initialize identity (required before pairing)"
         echo "  pair      Start pairing flow"
+        echo ""
+        echo "LLM:"
+        echo "  llm models    List available models"
+        echo "  llm health    Check LLM backend status"
+        echo "  llm chat      Chat with a model"
         echo ""
         echo "TUI:"
         echo "  hecate-tui    Launch terminal UI"
