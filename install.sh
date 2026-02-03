@@ -397,35 +397,35 @@ case "${1:-help}" in
         echo "  ${HECATE_DIR}/config/hecate.toml"
         ;;
     health)
-        curl -s http://localhost:4444/health | jq . 2>/dev/null || curl -s http://localhost:4444/health
+        curl -s http://localhost:4444/health
         ;;
     identity)
-        curl -s http://localhost:4444/identity | jq . 2>/dev/null || curl -s http://localhost:4444/identity
+        curl -s http://localhost:4444/identity
         ;;
     init)
         echo "Initializing identity..."
         result=$(curl -s -X POST http://localhost:4444/identity/init)
         if echo "$result" | grep -q '"ok":true'; then
             echo "Identity initialized successfully!"
-            echo "$result" | jq . 2>/dev/null || echo "$result"
+            echo "$result"
         else
-            echo "$result" | jq . 2>/dev/null || echo "$result"
+            echo "$result"
             exit 1
         fi
         ;;
     pair)
         echo "Starting pairing..."
         result=$(curl -s -X POST http://localhost:4444/api/pairing/start)
-        
+
         if echo "$result" | grep -q '"ok":false'; then
             echo "Pairing failed:"
-            echo "$result" | jq . 2>/dev/null || echo "$result"
+            echo "$result"
             exit 1
         fi
-        
-        code=$(echo "$result" | jq -r '.confirm_code')
-        url=$(echo "$result" | jq -r '.pairing_url')
-        
+
+        code=$(echo "$result" | grep -o '"confirm_code":"[^"]*"' | sed 's/"confirm_code":"//;s/"//')
+        url=$(echo "$result" | grep -o '"pairing_url":"[^"]*"' | sed 's/"pairing_url":"//;s/"//')
+
         echo ""
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo ""
@@ -434,32 +434,32 @@ case "${1:-help}" in
         echo "  Open this URL to confirm:"
         echo "  $url"
         echo ""
-        
+
         # Generate QR code if qrencode is available
         if command -v qrencode &>/dev/null; then
             echo "  Or scan this QR code:"
             echo ""
             qrencode -t ANSIUTF8 -m 2 "$url"
         fi
-        
+
         echo ""
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo ""
         echo "Waiting for confirmation..."
-        
+
         while true; do
             status_result=$(curl -s http://localhost:4444/api/pairing/status)
-            status=$(echo "$status_result" | jq -r '.status')
-            
+            status=$(echo "$status_result" | grep -o '"status":"[^"]*"' | sed 's/"status":"//;s/"//')
+
             case "$status" in
                 paired)
                     echo ""
                     echo "✓ Paired successfully!"
                     echo ""
-                    curl -s http://localhost:4444/api/identity | jq . 2>/dev/null
+                    curl -s http://localhost:4444/identity
                     exit 0
                     ;;
-                failed|expired)
+                failed|expired|idle)
                     echo ""
                     echo "✗ Pairing failed or expired"
                     exit 1
@@ -574,11 +574,7 @@ init_identity() {
         ok "Identity already exists"
     else
         error "Failed to initialize identity:"
-        if command_exists jq; then
-            echo "$result" | jq .
-        else
-            echo "$result"
-        fi
+        echo "$result"
         warn "Continuing anyway..."
     fi
 }
@@ -593,18 +589,19 @@ run_pairing() {
     info "Starting pairing session..."
     local result
     result=$(curl -s -X POST http://localhost:4444/api/pairing/start)
-    
+
     if echo "$result" | grep -q '"ok":false'; then
         error "Failed to start pairing:"
-        echo "$result" | jq . 2>/dev/null || echo "$result"
+        echo "$result"
         echo ""
         warn "You can pair later with: hecate pair"
         return 1
     fi
-    
+
+    # Extract values without jq (grep + sed)
     local code url
-    code=$(echo "$result" | jq -r '.confirm_code')
-    url=$(echo "$result" | jq -r '.pairing_url')
+    code=$(echo "$result" | grep -o '"confirm_code":"[^"]*"' | sed 's/"confirm_code":"//;s/"//')
+    url=$(echo "$result" | grep -o '"pairing_url":"[^"]*"' | sed 's/"pairing_url":"//;s/"//')
     
     echo ""
     echo -e "${CYAN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -633,7 +630,7 @@ run_pairing() {
     while [ $elapsed -lt $timeout ]; do
         local status_result status
         status_result=$(curl -s http://localhost:4444/api/pairing/status)
-        status=$(echo "$status_result" | jq -r '.status')
+        status=$(echo "$status_result" | grep -o '"status":"[^"]*"' | sed 's/"status":"//;s/"//')
         
         case "$status" in
             paired)
@@ -674,13 +671,45 @@ run_pairing() {
 
 setup_path() {
     if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
-        echo ""
-        warn "$BIN_DIR is not in PATH"
-        echo ""
-        echo "Add this to your shell profile (~/.bashrc, ~/.zshrc):"
-        echo ""
-        echo -e "  ${BOLD}export PATH=\"\$PATH:$BIN_DIR\"${NC}"
-        echo ""
+        section "Configuring PATH"
+
+        # Determine shell profile
+        local shell_profile=""
+        if [ -n "$ZSH_VERSION" ] || [ -f "$HOME/.zshrc" ]; then
+            shell_profile="$HOME/.zshrc"
+        elif [ -f "$HOME/.bashrc" ]; then
+            shell_profile="$HOME/.bashrc"
+        elif [ -f "$HOME/.profile" ]; then
+            shell_profile="$HOME/.profile"
+        fi
+
+        local path_line="export PATH=\"\$PATH:$BIN_DIR\""
+
+        if [ -n "$shell_profile" ]; then
+            # Check if already in profile (not just current PATH)
+            if ! grep -q "$BIN_DIR" "$shell_profile" 2>/dev/null; then
+                echo "" >> "$shell_profile"
+                echo "# Hecate CLI" >> "$shell_profile"
+                echo "$path_line" >> "$shell_profile"
+                ok "Added $BIN_DIR to $shell_profile"
+
+                # Source it for current session
+                export PATH="$PATH:$BIN_DIR"
+                ok "PATH updated for current session"
+            else
+                ok "$BIN_DIR already in $shell_profile"
+                # Just export for current session
+                export PATH="$PATH:$BIN_DIR"
+            fi
+        else
+            warn "Could not detect shell profile"
+            echo ""
+            echo "Add this to your shell profile manually:"
+            echo -e "  ${BOLD}${path_line}${NC}"
+            echo ""
+            # Still export for current session
+            export PATH="$PATH:$BIN_DIR"
+        fi
     else
         ok "$BIN_DIR is in PATH"
     fi
@@ -705,11 +734,11 @@ show_summary() {
         echo ""
         # Show identity
         local identity
-        identity=$(curl -s http://localhost:4444/api/identity 2>/dev/null)
+        identity=$(curl -s http://localhost:4444/identity 2>/dev/null)
         if [ -n "$identity" ]; then
             local mri org_identity
-            mri=$(echo "$identity" | jq -r '.mri // empty')
-            org_identity=$(echo "$identity" | jq -r '.org_identity // empty')
+            mri=$(echo "$identity" | grep -o '"mri":"[^"]*"' | sed 's/"mri":"//;s/"//')
+            org_identity=$(echo "$identity" | grep -o '"org_identity":"[^"]*"' | sed 's/"org_identity":"//;s/"//')
             if [ -n "$mri" ]; then
                 echo -e "  Identity: ${BOLD}${mri}${NC}"
             fi
