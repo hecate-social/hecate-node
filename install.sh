@@ -519,38 +519,158 @@ install_ollama() {
     return 0
 }
 
-pull_default_model() {
-    local model="${1:-llama3.2}"
-    
+# Model catalog with requirements
+# Format: "id|name|size_gb|min_ram_gb|category|description"
+MODEL_CATALOG=(
+    "llama3.2|Llama 3.2 (3B)|2|4|general|Fast, efficient, good for chat"
+    "llama3.1:8b|Llama 3.1 (8B)|5|8|general|Balanced quality and speed"
+    "llama3.1:70b|Llama 3.1 (70B)|40|48|general|Best quality, needs lots of RAM"
+    "qwen2.5-coder:7b|Qwen 2.5 Coder (7B)|4|8|code|Optimized for code generation"
+    "qwen2.5-coder:32b|Qwen 2.5 Coder (32B)|18|24|code|Advanced code, larger context"
+    "deepseek-r1:8b|DeepSeek R1 (8B)|5|8|reasoning|Chain-of-thought reasoning"
+    "deepseek-r1:32b|DeepSeek R1 (32B)|18|24|reasoning|Advanced reasoning tasks"
+    "mistral:7b|Mistral (7B)|4|8|general|Fast European model"
+    "phi3:mini|Phi-3 Mini (3.8B)|2|4|general|Microsoft's compact model"
+    "gemma2:9b|Gemma 2 (9B)|5|8|general|Google's efficient model"
+)
+
+# Selected models to download
+SELECTED_MODELS=()
+
+select_models() {
     echo ""
-    echo "Hecate works best with a local model for AI features."
+    echo "Select models to download for local AI inference."
+    echo -e "${DIM}Enter numbers separated by spaces. Models are pulled in order.${NC}"
     echo ""
-    echo -e "Recommended: ${BOLD}${model}${NC} (~2GB download)"
+
+    # Build menu based on available RAM
+    local available_options=()
+    local idx=1
+
+    # Group by category
+    echo -e "${BOLD}General Purpose:${NC}"
+    for entry in "${MODEL_CATALOG[@]}"; do
+        IFS='|' read -r id name size_gb min_ram category desc <<< "$entry"
+        if [ "$category" = "general" ] && [ "$DETECTED_RAM_GB" -ge "$min_ram" ]; then
+            local size_color="${GREEN}"
+            [ "$size_gb" -ge 20 ] && size_color="${YELLOW}"
+            [ "$size_gb" -ge 40 ] && size_color="${RED}"
+            printf "  ${BOLD}%2d)${NC} %-25s ${size_color}%3dGB${NC}  ${DIM}%s${NC}\n" "$idx" "$name" "$size_gb" "$desc"
+            available_options+=("$id")
+            ((idx++))
+        fi
+    done
+
     echo ""
-    
-    if ! confirm "Download ${model} now?"; then
+    echo -e "${BOLD}Code Generation:${NC}"
+    for entry in "${MODEL_CATALOG[@]}"; do
+        IFS='|' read -r id name size_gb min_ram category desc <<< "$entry"
+        if [ "$category" = "code" ] && [ "$DETECTED_RAM_GB" -ge "$min_ram" ]; then
+            local size_color="${GREEN}"
+            [ "$size_gb" -ge 20 ] && size_color="${YELLOW}"
+            printf "  ${BOLD}%2d)${NC} %-25s ${size_color}%3dGB${NC}  ${DIM}%s${NC}\n" "$idx" "$name" "$size_gb" "$desc"
+            available_options+=("$id")
+            ((idx++))
+        fi
+    done
+
+    echo ""
+    echo -e "${BOLD}Reasoning:${NC}"
+    for entry in "${MODEL_CATALOG[@]}"; do
+        IFS='|' read -r id name size_gb min_ram category desc <<< "$entry"
+        if [ "$category" = "reasoning" ] && [ "$DETECTED_RAM_GB" -ge "$min_ram" ]; then
+            local size_color="${GREEN}"
+            [ "$size_gb" -ge 20 ] && size_color="${YELLOW}"
+            printf "  ${BOLD}%2d)${NC} %-25s ${size_color}%3dGB${NC}  ${DIM}%s${NC}\n" "$idx" "$name" "$size_gb" "$desc"
+            available_options+=("$id")
+            ((idx++))
+        fi
+    done
+
+    if [ ${#available_options[@]} -eq 0 ]; then
+        warn "No models available for ${DETECTED_RAM_GB}GB RAM"
+        echo "Minimum 4GB RAM required for smallest models."
+        return 1
+    fi
+
+    echo ""
+    echo -e "  ${BOLD} 0)${NC} Skip - download models later"
+    echo ""
+
+    # Suggest based on hardware
+    local suggestion="1"
+    if [ "$DETECTED_RAM_GB" -ge 48 ]; then
+        suggestion="1 4 6"  # General + Code + Reasoning (larger)
+    elif [ "$DETECTED_RAM_GB" -ge 24 ]; then
+        suggestion="1 4 6"  # 8B models
+    elif [ "$DETECTED_RAM_GB" -ge 8 ]; then
+        suggestion="1 4"    # General + Code
+    fi
+
+    echo -en "  Enter choices (e.g., ${BOLD}1 4 6${NC}) [${suggestion}]: " > /dev/tty
+    read -r choices < /dev/tty
+
+    # Use suggestion if empty
+    [ -z "$choices" ] && choices="$suggestion"
+
+    # Handle skip
+    if [ "$choices" = "0" ]; then
         echo ""
-        echo "You can download a model later with:"
-        echo -e "  ${CYAN}ollama pull ${model}${NC}"
+        echo "You can download models later with:"
+        echo -e "  ${CYAN}ollama pull <model>${NC}"
         return 0
     fi
 
-    info "Pulling ${model}... (this may take a few minutes)"
-    
+    # Build selected models list
+    for choice in $choices; do
+        if [ "$choice" -ge 1 ] && [ "$choice" -le "${#available_options[@]}" ]; then
+            local model_idx=$((choice - 1))
+            SELECTED_MODELS+=("${available_options[$model_idx]}")
+        fi
+    done
+
+    if [ ${#SELECTED_MODELS[@]} -gt 0 ]; then
+        echo ""
+        ok "Selected ${#SELECTED_MODELS[@]} model(s): ${SELECTED_MODELS[*]}"
+    fi
+}
+
+pull_selected_models() {
+    if [ ${#SELECTED_MODELS[@]} -eq 0 ]; then
+        return 0
+    fi
+
+    echo ""
+    info "Downloading ${#SELECTED_MODELS[@]} model(s)..."
+    echo ""
+
     # Start ollama serve in background if not running
     if ! pgrep -x "ollama" > /dev/null 2>&1; then
         ollama serve > /dev/null 2>&1 &
         sleep 2
     fi
-    
-    if ollama pull "${model}"; then
-        ok "Model ${model} ready"
-        return 0
-    else
-        warn "Failed to pull ${model}"
-        echo "You can try again later with: ollama pull ${model}"
-        return 1
+
+    local success=0
+    local failed=0
+
+    for model in "${SELECTED_MODELS[@]}"; do
+        echo -e "${CYAN}→${NC} Pulling ${BOLD}${model}${NC}..."
+        if ollama pull "${model}" 2>&1 | grep -E "pulling|verifying|writing|success" | tail -5; then
+            ok "${model} ready"
+            ((success++))
+        else
+            warn "Failed to pull ${model}"
+            ((failed++))
+        fi
+        echo ""
+    done
+
+    if [ $failed -gt 0 ]; then
+        warn "${failed} model(s) failed to download"
+        echo "Retry with: ollama pull <model>"
     fi
+
+    ok "${success}/${#SELECTED_MODELS[@]} models downloaded"
 }
 
 setup_ollama() {
@@ -561,25 +681,37 @@ setup_ollama() {
 
     section "Ollama (LLM Backend)"
 
+    local need_models=false
+
     if check_ollama; then
         # Already installed - check for models
-        local models
-        models=$(ollama list 2>/dev/null | tail -n +2 | wc -l)
-        
-        if [ "$models" -gt 0 ]; then
-            ok "Ollama has ${models} model(s) installed"
+        local model_count
+        model_count=$(ollama list 2>/dev/null | tail -n +2 | wc -l)
+
+        if [ "$model_count" -gt 0 ]; then
+            ok "Ollama has ${model_count} model(s) installed"
             ollama list 2>/dev/null | tail -n +2 | head -5 | while read -r line; do
                 echo -e "  ${DIM}${line}${NC}"
             done
+            echo ""
+            if confirm "Download additional models?"; then
+                need_models=true
+            fi
         else
             warn "Ollama installed but no models found"
-            pull_default_model "llama3.2"
+            need_models=true
         fi
     else
         # Not installed - offer to install
         if install_ollama; then
-            pull_default_model "llama3.2"
+            need_models=true
         fi
+    fi
+
+    # Model selection and download
+    if [ "$need_models" = true ]; then
+        select_models
+        pull_selected_models
     fi
 }
 
