@@ -33,6 +33,14 @@ ROLE_WORKSTATION=false
 ROLE_SERVICES=false
 ROLE_AI=false
 
+# Hardware detection results
+DETECTED_RAM_GB=0
+DETECTED_CPU_CORES=0
+DETECTED_HAS_AVX2=false
+DETECTED_HAS_GPU=false
+DETECTED_GPU_TYPE=""
+SUGGESTED_ROLE=""
+
 # Colors
 if [ -t 1 ]; then
     RED='\033[0;31m'
@@ -150,6 +158,100 @@ show_banner() {
 }
 
 # -----------------------------------------------------------------------------
+# Hardware Detection
+# -----------------------------------------------------------------------------
+
+detect_hardware() {
+    section "Detecting Hardware"
+
+    local os
+    os=$(detect_os)
+
+    # Detect RAM
+    if [ "$os" = "linux" ]; then
+        DETECTED_RAM_GB=$(awk '/MemTotal/ {printf "%.0f", $2/1024/1024}' /proc/meminfo 2>/dev/null || echo "0")
+    elif [ "$os" = "darwin" ]; then
+        DETECTED_RAM_GB=$(sysctl -n hw.memsize 2>/dev/null | awk '{printf "%.0f", $1/1024/1024/1024}' || echo "0")
+    fi
+
+    # Detect CPU cores
+    if [ "$os" = "linux" ]; then
+        DETECTED_CPU_CORES=$(nproc 2>/dev/null || grep -c ^processor /proc/cpuinfo 2>/dev/null || echo "1")
+    elif [ "$os" = "darwin" ]; then
+        DETECTED_CPU_CORES=$(sysctl -n hw.ncpu 2>/dev/null || echo "1")
+    fi
+
+    # Detect AVX2 support (important for llama.cpp performance)
+    if [ "$os" = "linux" ]; then
+        if grep -q avx2 /proc/cpuinfo 2>/dev/null; then
+            DETECTED_HAS_AVX2=true
+        fi
+    elif [ "$os" = "darwin" ]; then
+        if sysctl -n machdep.cpu.features 2>/dev/null | grep -qi avx2; then
+            DETECTED_HAS_AVX2=true
+        fi
+    fi
+
+    # Detect GPU (NVIDIA, AMD, or Apple Silicon)
+    if [ "$os" = "linux" ]; then
+        if command_exists nvidia-smi && nvidia-smi &>/dev/null; then
+            DETECTED_HAS_GPU=true
+            DETECTED_GPU_TYPE="nvidia"
+        elif [ -d /sys/class/drm ] && ls /sys/class/drm/card*/device/vendor 2>/dev/null | xargs grep -l 0x1002 &>/dev/null; then
+            DETECTED_HAS_GPU=true
+            DETECTED_GPU_TYPE="amd"
+        fi
+    elif [ "$os" = "darwin" ]; then
+        # Apple Silicon has integrated GPU
+        if [ "$(detect_arch)" = "arm64" ]; then
+            DETECTED_HAS_GPU=true
+            DETECTED_GPU_TYPE="apple"
+        fi
+    fi
+
+    # Display results
+    echo -e "  ${BOLD}RAM:${NC}        ${DETECTED_RAM_GB} GB"
+    echo -e "  ${BOLD}CPU Cores:${NC}  ${DETECTED_CPU_CORES}"
+    echo -e "  ${BOLD}AVX2:${NC}       $([ "$DETECTED_HAS_AVX2" = true ] && echo "${GREEN}Yes${NC}" || echo "No")"
+    if [ "$DETECTED_HAS_GPU" = true ]; then
+        echo -e "  ${BOLD}GPU:${NC}        ${GREEN}${DETECTED_GPU_TYPE}${NC}"
+    else
+        echo -e "  ${BOLD}GPU:${NC}        None detected"
+    fi
+
+    # Suggest best role based on hardware
+    suggest_role
+}
+
+suggest_role() {
+    echo ""
+    
+    if [ "$DETECTED_RAM_GB" -ge 32 ] && [ "$DETECTED_HAS_GPU" = true ]; then
+        SUGGESTED_ROLE="4"  # Full - can do everything including AI
+        echo -e "  ${GREEN}★${NC} ${BOLD}Recommended: Full (option 4)${NC}"
+        echo -e "    ${DIM}High RAM + GPU — ideal for serving AI models${NC}"
+    elif [ "$DETECTED_RAM_GB" -ge 16 ] && [ "$DETECTED_HAS_GPU" = true ]; then
+        SUGGESTED_ROLE="1 3"  # Workstation + AI
+        echo -e "  ${GREEN}★${NC} ${BOLD}Recommended: Workstation + AI Provider (1 3)${NC}"
+        echo -e "    ${DIM}Good specs — can develop and serve AI locally${NC}"
+    elif [ "$DETECTED_RAM_GB" -ge 16 ]; then
+        SUGGESTED_ROLE="1"  # Workstation
+        echo -e "  ${GREEN}★${NC} ${BOLD}Recommended: Workstation (option 1)${NC}"
+        echo -e "    ${DIM}Good for development, use remote AI for inference${NC}"
+    elif [ "$DETECTED_RAM_GB" -ge 8 ]; then
+        SUGGESTED_ROLE="1"  # Workstation
+        echo -e "  ${YELLOW}★${NC} ${BOLD}Recommended: Workstation (option 1)${NC}"
+        echo -e "    ${DIM}Suitable for development with remote AI${NC}"
+    else
+        SUGGESTED_ROLE="2"  # Services only
+        echo -e "  ${YELLOW}★${NC} ${BOLD}Recommended: Services (option 2)${NC}"
+        echo -e "    ${DIM}Limited RAM — best as lightweight services node${NC}"
+    fi
+    
+    echo ""
+}
+
+# -----------------------------------------------------------------------------
 # Node Role Selection
 # -----------------------------------------------------------------------------
 
@@ -179,8 +281,20 @@ select_node_roles() {
         return
     fi
 
-    echo -en "  Enter choices (e.g., ${BOLD}1 3${NC} or ${BOLD}4${NC}): " > /dev/tty
+    # Show default based on hardware suggestion
+    local default_hint=""
+    if [ -n "$SUGGESTED_ROLE" ]; then
+        default_hint=" [${SUGGESTED_ROLE}]"
+    fi
+
+    echo -en "  Enter choices (e.g., ${BOLD}1 3${NC} or ${BOLD}4${NC})${default_hint}: " > /dev/tty
     read -r choices < /dev/tty
+
+    # Use suggested role if user just pressed Enter
+    if [ -z "$choices" ] && [ -n "$SUGGESTED_ROLE" ]; then
+        choices="$SUGGESTED_ROLE"
+        info "Using recommended: ${choices}"
+    fi
 
     # Parse choices
     for choice in $choices; do
@@ -1038,6 +1152,7 @@ main() {
     done
 
     show_banner
+    detect_hardware
     select_node_roles
 
     echo ""
