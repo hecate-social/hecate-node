@@ -26,8 +26,10 @@ SKIP_AI=false
 HEADLESS=false
 PRESET_ROLE=""
 
-# Node role (set during selection)
-NODE_ROLE=""
+# Node roles (can combine multiple)
+ROLE_WORKSTATION=false
+ROLE_SERVICES=false
+ROLE_AI=false
 
 # Colors (disabled if not a terminal)
 if [ -t 1 ]; then
@@ -284,56 +286,101 @@ suggest_role() {
 }
 
 # -----------------------------------------------------------------------------
-# Node Role Selection
+# Node Role Selection (Multi-Select)
 # -----------------------------------------------------------------------------
 
-select_node_role() {
+select_node_roles() {
     section "Node Role Selection"
 
     echo "What will this node be used for?"
+    echo -e "${DIM}You can select multiple roles by entering numbers separated by spaces${NC}"
     echo ""
     echo -e "  ${BOLD}1) Developer Workstation${NC}"
-    echo -e "     ${DIM}Full install: daemon + TUI + Claude skills${NC}"
-    echo -e "     ${DIM}For writing and testing agents locally${NC}"
+    echo -e "     ${DIM}TUI + Claude Code skills for writing agents${NC}"
     echo ""
-    echo -e "  ${BOLD}2) Services Node${NC}"
-    echo -e "     ${DIM}Daemon only, headless operation${NC}"
-    echo -e "     ${DIM}Hosts capabilities, connects to AI node on network${NC}"
+    echo -e "  ${BOLD}2) Services Host${NC}"
+    echo -e "     ${DIM}Host capabilities on the mesh (API exposed to network)${NC}"
     echo ""
-    echo -e "  ${BOLD}3) AI Node${NC}"
-    echo -e "     ${DIM}Dedicated AI model server for your network${NC}"
-    echo -e "     ${DIM}Other nodes connect here for inference${NC}"
+    echo -e "  ${BOLD}3) AI Server${NC}"
+    echo -e "     ${DIM}Run Ollama and serve AI models to the network${NC}"
     echo ""
-    echo -e "  ${BOLD}4) All-in-one${NC}"
-    echo -e "     ${DIM}Everything: daemon + TUI + skills + local AI${NC}"
-    echo -e "     ${DIM}Self-contained, no external dependencies${NC}"
+    echo -e "  ${BOLD}4) All of the above${NC}"
+    echo -e "     ${DIM}Full stack: development + services + AI${NC}"
     echo ""
 
+    # Handle preset roles
     if [ -n "$PRESET_ROLE" ]; then
-        NODE_ROLE="$PRESET_ROLE"
-        info "Using preset role: ${NODE_ROLE}"
+        parse_preset_roles "$PRESET_ROLE"
+        show_selected_roles
         return
     fi
 
+    # Handle headless mode
     if [ "$HEADLESS" = true ]; then
-        NODE_ROLE="workstation"
-        info "Headless mode: using workstation role"
+        ROLE_WORKSTATION=true
+        info "Headless mode: defaulting to workstation"
         return
     fi
 
-    echo -en "  Enter choice [1-4]: "
-    read -r choice
+    echo -en "  Enter choices (e.g., 1 3 or 4): "
+    read -r choices
 
-    case "$choice" in
-        1) NODE_ROLE="workstation" ;;
-        2) NODE_ROLE="services" ;;
-        3) NODE_ROLE="ai" ;;
-        4) NODE_ROLE="full" ;;
-        *) NODE_ROLE="workstation" ;;
-    esac
+    # Parse choices
+    for choice in $choices; do
+        case "$choice" in
+            1) ROLE_WORKSTATION=true ;;
+            2) ROLE_SERVICES=true ;;
+            3) ROLE_AI=true ;;
+            4)
+                ROLE_WORKSTATION=true
+                ROLE_SERVICES=true
+                ROLE_AI=true
+                ;;
+        esac
+    done
+
+    # Default to workstation if nothing selected
+    if [ "$ROLE_WORKSTATION" = false ] && [ "$ROLE_SERVICES" = false ] && [ "$ROLE_AI" = false ]; then
+        ROLE_WORKSTATION=true
+    fi
 
     echo ""
-    ok "Selected role: ${NODE_ROLE}"
+    show_selected_roles
+}
+
+parse_preset_roles() {
+    local roles="$1"
+    # Support comma or plus separated: "workstation,ai" or "workstation+ai"
+    local IFS=',+'
+    for role in $roles; do
+        case "$role" in
+            workstation|dev) ROLE_WORKSTATION=true ;;
+            services|server) ROLE_SERVICES=true ;;
+            ai|model) ROLE_AI=true ;;
+            full|all)
+                ROLE_WORKSTATION=true
+                ROLE_SERVICES=true
+                ROLE_AI=true
+                ;;
+        esac
+    done
+}
+
+show_selected_roles() {
+    local roles=()
+    [ "$ROLE_WORKSTATION" = true ] && roles+=("workstation")
+    [ "$ROLE_SERVICES" = true ] && roles+=("services")
+    [ "$ROLE_AI" = true ] && roles+=("ai")
+
+    ok "Selected roles: ${roles[*]}"
+}
+
+get_roles_string() {
+    local roles=()
+    [ "$ROLE_WORKSTATION" = true ] && roles+=("workstation")
+    [ "$ROLE_SERVICES" = true ] && roles+=("services")
+    [ "$ROLE_AI" = true ] && roles+=("ai")
+    echo "${roles[*]}"
 }
 
 # -----------------------------------------------------------------------------
@@ -347,7 +394,7 @@ RECOMMENDED_MODEL_DESC=""
 recommend_model() {
     # Recommend based on hardware and role
     local for_serving=false
-    [ "$NODE_ROLE" = "ai" ] && for_serving=true
+    [ "$ROLE_AI" = true ] && for_serving=true
 
     if [ "$DETECTED_RAM_GB" -ge 32 ] && [ "$DETECTED_HAS_GPU" = true ]; then
         if [ "$for_serving" = true ]; then
@@ -401,7 +448,7 @@ check_dependencies() {
 # -----------------------------------------------------------------------------
 
 check_dev_runtime() {
-    if [ "$NODE_ROLE" = "workstation" ] || [ "$NODE_ROLE" = "full" ]; then
+    if [ "$ROLE_WORKSTATION" = true ]; then
         if command_exists erl && command_exists elixir; then
             ok "BEAM development runtime found"
         else
@@ -448,9 +495,9 @@ install_daemon() {
 # -----------------------------------------------------------------------------
 
 install_tui() {
-    # Skip TUI for services and AI nodes (headless)
-    if [ "$NODE_ROLE" = "services" ]; then
-        info "Skipping TUI (services node is headless)"
+    # Install TUI for workstation role
+    if [ "$ROLE_WORKSTATION" = false ]; then
+        info "Skipping TUI (not a workstation)"
         return
     fi
 
@@ -490,9 +537,9 @@ install_tui() {
 # -----------------------------------------------------------------------------
 
 install_skills() {
-    # Skip skills for services and AI nodes (no Claude Code there)
-    if [ "$NODE_ROLE" = "services" ] || [ "$NODE_ROLE" = "ai" ]; then
-        info "Skipping Claude skills (not a development workstation)"
+    # Install skills for workstation role
+    if [ "$ROLE_WORKSTATION" = false ]; then
+        info "Skipping Claude skills (not a workstation)"
         return
     fi
 
@@ -528,21 +575,21 @@ setup_data_dir() {
 
     mkdir -p "${INSTALL_DIR}"/{data,logs,config}
 
-    # Set config based on role
-    case "$NODE_ROLE" in
-        services|ai)
-            CONFIG_API_HOST="0.0.0.0"  # Accept connections from network
-            ;;
-        *)
-            CONFIG_API_HOST="127.0.0.1"  # Local only
-            ;;
-    esac
+    # Set config based on roles - expose to network if services or AI
+    if [ "$ROLE_SERVICES" = true ] || [ "$ROLE_AI" = true ]; then
+        CONFIG_API_HOST="0.0.0.0"  # Accept connections from network
+    else
+        CONFIG_API_HOST="127.0.0.1"  # Local only
+    fi
+
+    local roles_string
+    roles_string=$(get_roles_string)
 
     # Create default config if not exists
     if [ ! -f "${INSTALL_DIR}/config/hecate.toml" ]; then
         cat > "${INSTALL_DIR}/config/hecate.toml" << CONF
 # Hecate Node Configuration
-# Role: ${NODE_ROLE}
+# Roles: ${roles_string}
 # See: https://github.com/hecate-social/hecate-node
 
 [daemon]
@@ -934,20 +981,16 @@ setup_ai_model() {
         return
     fi
 
-    case "$NODE_ROLE" in
-        workstation)
-            setup_ai_for_workstation
-            ;;
-        services)
-            setup_ai_for_services
-            ;;
-        ai)
-            setup_ai_for_ai_node
-            ;;
-        full)
-            setup_ai_local
-            ;;
-    esac
+    # AI role takes precedence - set up as AI server
+    if [ "$ROLE_AI" = true ]; then
+        setup_ai_for_ai_node
+    # Workstation can use local or remote AI
+    elif [ "$ROLE_WORKSTATION" = true ]; then
+        setup_ai_for_workstation
+    # Services-only connects to remote AI
+    elif [ "$ROLE_SERVICES" = true ]; then
+        setup_ai_for_services
+    fi
 }
 
 save_ai_config() {
@@ -971,12 +1014,13 @@ EOF
 # -----------------------------------------------------------------------------
 
 setup_systemd_service() {
-    # Only for Linux services/AI nodes
+    # Only for Linux
     if [ "$(detect_os)" != "linux" ]; then
         return
     fi
 
-    if [ "$NODE_ROLE" != "services" ] && [ "$NODE_ROLE" != "ai" ]; then
+    # Only offer for services or AI roles (server-like)
+    if [ "$ROLE_SERVICES" = false ] && [ "$ROLE_AI" = false ]; then
         return
     fi
 
@@ -1061,17 +1105,18 @@ setup_path() {
 show_summary() {
     section "Installation Complete"
 
-    echo -e "${GREEN}${BOLD}Hecate ${NODE_ROLE} node is ready!${NC}"
+    local roles_string
+    roles_string=$(get_roles_string)
+
+    echo -e "${GREEN}${BOLD}Hecate node is ready!${NC}"
+    echo -e "Roles: ${BOLD}${roles_string}${NC}"
     echo ""
 
     echo "Installed components:"
     echo -e "  ${BOLD}hecate${NC}       - Mesh daemon       ${DIM}${BIN_DIR}/hecate${NC}"
 
-    if [ "$NODE_ROLE" != "services" ]; then
+    if [ "$ROLE_WORKSTATION" = true ]; then
         echo -e "  ${BOLD}hecate-tui${NC}   - Terminal UI       ${DIM}${BIN_DIR}/hecate-tui${NC}"
-    fi
-
-    if [ "$NODE_ROLE" = "workstation" ] || [ "$NODE_ROLE" = "full" ]; then
         echo -e "  ${BOLD}skills${NC}       - Claude Code       ${DIM}~/.claude/HECATE_SKILLS.md${NC}"
     fi
 
@@ -1084,60 +1129,58 @@ show_summary() {
     echo "Configuration: ${INSTALL_DIR}/config/hecate.toml"
     echo ""
 
-    # Role-specific next steps
-    case "$NODE_ROLE" in
-        workstation)
-            echo -e "${BOLD}Next steps:${NC}"
-            echo ""
-            echo "  1. Start the daemon:"
-            echo -e "     ${CYAN}hecate start${NC}"
-            echo ""
-            echo "  2. Open the TUI:"
-            echo -e "     ${CYAN}hecate-tui${NC}"
-            echo ""
-            echo "  3. Pair with the mesh (first time):"
-            echo -e "     ${CYAN}hecate-tui pair${NC}"
-            ;;
-        services)
-            echo -e "${BOLD}Next steps:${NC}"
-            echo ""
-            echo "  1. Start the service:"
-            echo -e "     ${CYAN}sudo systemctl start hecate${NC}"
-            echo ""
-            echo "  2. Check status:"
-            echo -e "     ${CYAN}sudo systemctl status hecate${NC}"
-            echo ""
-            echo "  3. View logs:"
-            echo -e "     ${CYAN}journalctl -u hecate -f${NC}"
-            ;;
-        ai)
-            echo -e "${BOLD}Next steps:${NC}"
-            echo ""
-            echo "  1. Start Hecate:"
-            echo -e "     ${CYAN}hecate start${NC}"
-            echo ""
-            echo "  2. Verify Ollama is accessible:"
-            echo -e "     ${CYAN}curl http://${DETECTED_LOCAL_IP}:11434/api/tags${NC}"
-            echo ""
-            echo "  3. Share this URL with other nodes:"
-            echo -e "     ${CYAN}http://${DETECTED_LOCAL_IP}:11434${NC}"
-            ;;
-        full)
-            echo -e "${BOLD}Next steps:${NC}"
-            echo ""
-            echo "  1. Start the daemon:"
-            echo -e "     ${CYAN}hecate start${NC}"
-            echo ""
-            echo "  2. Open the TUI:"
-            echo -e "     ${CYAN}hecate-tui${NC}"
-            echo ""
-            if [ -n "$AI_CONFIG_MODEL" ]; then
-                echo "  3. Test AI:"
-                echo -e "     ${CYAN}ollama run ${AI_CONFIG_MODEL} \"Hello\"${NC}"
-                echo ""
-            fi
-            ;;
-    esac
+    echo -e "${BOLD}Next steps:${NC}"
+    echo ""
+
+    local step=1
+
+    # Start command depends on whether systemd service was created
+    if [ "$ROLE_SERVICES" = true ] || [ "$ROLE_AI" = true ]; then
+        echo "  ${step}. Start the service:"
+        echo -e "     ${CYAN}sudo systemctl start hecate${NC}"
+        echo -e "     ${DIM}or: hecate start${NC}"
+        ((step++))
+        echo ""
+    else
+        echo "  ${step}. Start the daemon:"
+        echo -e "     ${CYAN}hecate start${NC}"
+        ((step++))
+        echo ""
+    fi
+
+    # TUI for workstation
+    if [ "$ROLE_WORKSTATION" = true ]; then
+        echo "  ${step}. Open the TUI:"
+        echo -e "     ${CYAN}hecate-tui${NC}"
+        ((step++))
+        echo ""
+
+        echo "  ${step}. Pair with the mesh (first time):"
+        echo -e "     ${CYAN}hecate-tui pair${NC}"
+        ((step++))
+        echo ""
+    fi
+
+    # AI node info
+    if [ "$ROLE_AI" = true ]; then
+        echo "  ${step}. Verify Ollama is accessible from network:"
+        echo -e "     ${CYAN}curl http://${DETECTED_LOCAL_IP}:11434/api/tags${NC}"
+        ((step++))
+        echo ""
+
+        echo "  ${step}. Share this URL with other nodes:"
+        echo -e "     ${CYAN}http://${DETECTED_LOCAL_IP}:11434${NC}"
+        ((step++))
+        echo ""
+    fi
+
+    # Test AI if configured
+    if [ -n "$AI_CONFIG_MODEL" ] && [ "$ROLE_AI" = false ]; then
+        echo "  ${step}. Test AI model:"
+        echo -e "     ${CYAN}curl ${AI_CONFIG_ENDPOINT}/api/generate -d '{\"model\":\"${AI_CONFIG_MODEL}\",\"prompt\":\"Hello\"}'${NC}"
+        ((step++))
+        echo ""
+    fi
 
     echo -e "${DIM}Documentation: https://github.com/hecate-social/hecate-node${NC}"
     echo ""
@@ -1153,16 +1196,16 @@ show_help() {
     echo "Usage: $0 [options]"
     echo ""
     echo "Options:"
-    echo "  --role=ROLE  Set node role (workstation|services|ai|full)"
-    echo "  --no-ai      Skip AI model setup"
-    echo "  --headless   Non-interactive mode (use defaults)"
-    echo "  --help       Show this help"
+    echo "  --role=ROLES  Set node roles (can combine: workstation,services,ai)"
+    echo "  --no-ai       Skip AI model setup"
+    echo "  --headless    Non-interactive mode (use defaults)"
+    echo "  --help        Show this help"
     echo ""
-    echo "Node roles:"
-    echo "  workstation  Developer workstation (daemon + TUI + skills)"
-    echo "  services     Headless services node (daemon only)"
-    echo "  ai           Dedicated AI model server"
-    echo "  full         All-in-one (everything local)"
+    echo "Node roles (can be combined with comma or plus):"
+    echo "  workstation   Developer workstation (TUI + Claude skills)"
+    echo "  services      Services host (API exposed to network)"
+    echo "  ai            AI model server (Ollama exposed to network)"
+    echo "  full          All roles combined"
     echo ""
     echo "Environment variables:"
     echo "  HECATE_VERSION     Version to install (default: latest)"
@@ -1170,9 +1213,17 @@ show_help() {
     echo "  HECATE_BIN_DIR     Binary directory (default: ~/.local/bin)"
     echo ""
     echo "Examples:"
+    echo "  # Interactive (recommended)"
     echo "  curl -fsSL https://hecate.social/install.sh | bash"
-    echo "  curl -fsSL https://hecate.social/install.sh | bash -s -- --role=ai"
-    echo "  curl -fsSL https://hecate.social/install.sh | bash -s -- --no-ai --headless"
+    echo ""
+    echo "  # Single role"
+    echo "  curl -fsSL https://hecate.social/install.sh | bash -s -- --role=workstation"
+    echo ""
+    echo "  # Combined roles (AI server + dev workstation)"
+    echo "  curl -fsSL https://hecate.social/install.sh | bash -s -- --role=ai,workstation"
+    echo ""
+    echo "  # Headless services node"
+    echo "  curl -fsSL https://hecate.social/install.sh | bash -s -- --role=services --no-ai"
     echo ""
 }
 
@@ -1210,10 +1261,13 @@ main() {
     show_banner
     check_dependencies
     detect_hardware
-    select_node_role
+    select_node_roles
+
+    local roles_string
+    roles_string=$(get_roles_string)
 
     echo ""
-    echo -e "Role:        ${BOLD}${NODE_ROLE}${NC}"
+    echo -e "Roles:       ${BOLD}${roles_string}${NC}"
     echo -e "Install to:  ${BOLD}${INSTALL_DIR}${NC}"
     echo -e "Binaries:    ${BOLD}${BIN_DIR}${NC}"
     echo ""

@@ -10,57 +10,65 @@ curl -fsSL https://hecate.social/install.sh | bash
 
 ## Node Roles
 
-The installer asks what type of node you're setting up:
+The installer lets you select one or more roles for your node:
 
-| Role | Installs | AI Setup | Use Case |
-|------|----------|----------|----------|
-| **Developer Workstation** | Daemon + TUI + Skills | Connect to AI node | Writing and testing agents |
-| **Services Node** | Daemon only | Remote AI | Headless server hosting capabilities |
-| **AI Node** | Daemon + Ollama | Local model, network-exposed | Dedicated AI server for your network |
-| **All-in-one** | Everything | Local model | Self-contained development |
+| Role | What It Adds | Use Case |
+|------|--------------|----------|
+| **Workstation** | TUI + Claude Skills | Development and testing |
+| **Services** | Network-exposed API | Hosting capabilities |
+| **AI** | Ollama + models | Serving AI to network |
 
-### Developer Workstation
+**Roles can be combined!** For example, a powerful machine could be both an AI server AND a development workstation.
 
-Full development environment with Claude Code integration:
-- Hecate daemon for mesh connectivity
-- Terminal UI for monitoring
-- Claude Code skills for AI-assisted development
-- Connects to an AI node on your network (or local)
+### Interactive Selection
 
+```
+What will this node be used for?
+You can select multiple roles by entering numbers separated by spaces
+
+  1) Developer Workstation
+     TUI + Claude Code skills for writing agents
+
+  2) Services Host
+     Host capabilities on the mesh (API exposed to network)
+
+  3) AI Server
+     Run Ollama and serve AI models to the network
+
+  4) All of the above
+     Full stack: development + services + AI
+
+  Enter choices (e.g., 1 3 or 4):
+```
+
+### Example Configurations
+
+**Developer Workstation** - For writing and testing agents:
 ```bash
 curl -fsSL https://hecate.social/install.sh | bash -s -- --role=workstation
 ```
 
-### Services Node
-
-Lightweight headless node for hosting services:
-- Daemon only (no TUI or skills)
-- Runs as systemd service (auto-start, background)
-- API exposed to network (`0.0.0.0:4444`)
-- Connects to AI node for inference
-
+**Services Node** - Headless server hosting capabilities:
 ```bash
 curl -fsSL https://hecate.social/install.sh | bash -s -- --role=services
 ```
 
-### AI Node
-
-Dedicated AI model server for your network:
-- Ollama installed and configured for network access
-- Large model pulled and ready to serve
-- Other nodes connect to this for inference
-- Shows your IP and connection URL for other nodes
-
+**AI Server** - Dedicated AI model server:
 ```bash
 curl -fsSL https://hecate.social/install.sh | bash -s -- --role=ai
 ```
 
-### All-in-one
+**AI + Workstation** - Dev machine that also serves AI:
+```bash
+curl -fsSL https://hecate.social/install.sh | bash -s -- --role=ai,workstation
+```
 
-Everything running locally, no external dependencies:
-- Full stack: daemon, TUI, skills, local AI
-- Best for isolated development or single-machine setups
+**Services + AI** - Server that hosts capabilities AND serves AI:
+```bash
+curl -fsSL https://hecate.social/install.sh | bash -s -- --role=services,ai
+```
 
+**Full Stack** - Everything:
 ```bash
 curl -fsSL https://hecate.social/install.sh | bash -s -- --role=full
 ```
@@ -97,31 +105,34 @@ When sudo is needed (Ollama install, systemd service), the installer:
 # Interactive (recommended)
 curl -fsSL https://hecate.social/install.sh | bash
 
-# Preset role
+# Single role
 curl -fsSL https://hecate.social/install.sh | bash -s -- --role=workstation
-curl -fsSL https://hecate.social/install.sh | bash -s -- --role=services
-curl -fsSL https://hecate.social/install.sh | bash -s -- --role=ai
-curl -fsSL https://hecate.social/install.sh | bash -s -- --role=full
+
+# Combined roles
+curl -fsSL https://hecate.social/install.sh | bash -s -- --role=ai,workstation
+curl -fsSL https://hecate.social/install.sh | bash -s -- --role=services,ai
 
 # Skip AI setup
 curl -fsSL https://hecate.social/install.sh | bash -s -- --no-ai
 
 # Non-interactive (CI/automation)
-curl -fsSL https://hecate.social/install.sh | bash -s -- --headless
-
-# Combine options
-curl -fsSL https://hecate.social/install.sh | bash -s -- --role=services --no-ai
+curl -fsSL https://hecate.social/install.sh | bash -s -- --headless --role=services
 ```
 
 ## What Gets Installed
 
-| Component | Workstation | Services | AI Node | All-in-one |
-|-----------|:-----------:|:--------:|:-------:|:----------:|
+Components are installed based on which roles you select:
+
+| Component | Workstation | Services | AI | All |
+|-----------|:-----------:|:--------:|:--:|:---:|
 | Hecate Daemon | ✅ | ✅ | ✅ | ✅ |
-| Hecate TUI | ✅ | ❌ | ✅ | ✅ |
-| Claude Skills | ✅ | ❌ | ❌ | ✅ |
-| Ollama | optional | ❌ | ✅ | ✅ |
-| Systemd Service | ❌ | ✅ | optional | ❌ |
+| Hecate TUI | ✅ | - | - | ✅ |
+| Claude Skills | ✅ | - | - | ✅ |
+| Network API | - | ✅ | ✅ | ✅ |
+| Ollama | optional | - | ✅ | ✅ |
+| Systemd Service | - | ✅ | ✅ | - |
+
+**Combined roles add up.** For example, `--role=ai,workstation` gets: TUI + Skills + Ollama + Network API.
 
 ## Installation Paths
 
