@@ -116,7 +116,7 @@ confirm() {
     [ "$default" = "y" ] && yn_hint="[Y/n]"
 
     echo -en "${CYAN}?${NC} ${prompt} ${yn_hint} "
-    read -r response
+    read -r response < /dev/tty
     response="${response:-$default}"
     [[ "$response" =~ ^[Yy] ]]
 }
@@ -132,11 +132,11 @@ prompt_input() {
     fi
 
     if [ -n "$default" ]; then
-        echo -en "${CYAN}?${NC} ${prompt} [${default}]: "
+        echo -en "${CYAN}?${NC} ${prompt} [${default}]: " > /dev/tty
     else
-        echo -en "${CYAN}?${NC} ${prompt}: "
+        echo -en "${CYAN}?${NC} ${prompt}: " > /dev/tty
     fi
-    read -r response
+    read -r response < /dev/tty
     echo "${response:-$default}"
 }
 
@@ -151,16 +151,16 @@ select_option() {
         return
     fi
 
-    echo -e "${CYAN}?${NC} ${prompt}"
-    echo ""
+    echo -e "${CYAN}?${NC} ${prompt}" > /dev/tty
+    echo "" > /dev/tty
     local i=1
     for opt in "${options[@]}"; do
-        echo -e "  ${BOLD}${i})${NC} ${opt}"
+        echo -e "  ${BOLD}${i})${NC} ${opt}" > /dev/tty
         ((i++))
     done
-    echo ""
-    echo -en "  Enter choice [1-${#options[@]}]: "
-    read -r choice
+    echo "" > /dev/tty
+    echo -en "  Enter choice [1-${#options[@]}]: " > /dev/tty
+    read -r choice < /dev/tty
     choice="${choice:-1}"
     echo "$choice"
 }
@@ -323,7 +323,7 @@ select_node_roles() {
     fi
 
     echo -en "  Enter choices (e.g., 1 3 or 4): "
-    read -r choices
+    read -r choices < /dev/tty
 
     # Parse choices
     for choice in $choices; do
