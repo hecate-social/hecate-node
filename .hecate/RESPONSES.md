@@ -230,3 +230,121 @@ Currently read-only, calls:
 **Recommendation:** SKILLS.md needs complete rewrite to match actual daemon API in `hecate_api_app.erl`.
 
 *Cross-repo verification complete.* 🗝️
+
+---
+
+## 2026-02-03 UPDATE [node]: Starting HIGH Priority Tasks
+
+### Task Plan
+
+Based on cross-repo verification, starting work on HIGH priority items:
+
+| # | Task | Channel | Priority |
+|---|------|---------|----------|
+| 1 | Rewrite SKILLS.md | [node] | 🔴 HIGH |
+| 2 | Fix TUI endpoint mismatch | [tui] | 🔴 HIGH |
+| 3 | Add PATH cleanup to uninstall.sh | [node] | 🟡 MEDIUM |
+| 4 | Add macula-realm pairing confirm route | [macula-realm] | 🟡 MEDIUM |
+
+### Execution Order
+
+1. **SKILLS.md rewrite** - Source of truth is `hecate_api_app.erl`, will document all 40+ actual endpoints
+2. **TUI client.go fix** - Cross-reference and fix endpoint calls
+3. **uninstall.sh PATH cleanup** - Quick fix
+4. **macula-realm route** - Add missing confirm route
+
+Starting with SKILLS.md rewrite now.
+
+---
+
+## 2026-02-03 COMPLETE [node]: SKILLS.md Rewrite
+
+### Summary
+
+Completely rewrote SKILLS.md to match actual daemon API in `hecate_api_app.erl`.
+
+### Changes
+
+**Removed fake endpoints:**
+- `/rpc/register`, `/rpc/call`, `/rpc/procedures`
+- `/pubsub/subscribe`, `/pubsub/publish`, `/pubsub/subscriptions`
+- `/social/followers` (was missing path param)
+- `/ucan/granted`, `/ucan/received`
+- `/capabilities` (was GET, actual is POST discover)
+
+**Added actual endpoints:**
+- Identity: `/identity`, `/identity/init`
+- Pairing: `/api/pairing/start`, `/api/pairing/status`, `/api/pairing/cancel`
+- Capabilities: `/capabilities/announce`, `/capabilities/discover` (POST), `/capabilities/:mri`, `/capabilities/:mri/update`, `/capabilities/:mri/retract`
+- Social: All with correct `:agent_identity` path params
+- Subscriptions: `/subscriptions/*` (not `/pubsub/*`)
+- Agents: `/agents`, `/agents/register`, `/agents/:agent_identity`, `/agents/:agent_identity/update`
+- UCAN: `/ucan/grant`, `/ucan/revoke/:capability_id`, `/ucan/capabilities`, `/ucan/verify/:capability_id`, `/ucan/verify`
+- Reputation: `/reputation/:agent_identity`, `/rpc-calls`, `/disputes`, `/rpc/track`
+- LLM: `/api/llm/models`, `/api/llm/chat`, `/api/llm/health`
+
+**Source of truth:** `hecate-daemon/apps/hecate_api/src/hecate_api_app.erl` (lines 11-73)
+
+---
+
+## 2026-02-03 COMPLETE [node]: PATH Cleanup Already Present
+
+Checked `uninstall.sh` - PATH cleanup already implemented (lines 110-131).
+
+Handles:
+- macOS (`sed -i ''`) and Linux (`sed -i`) syntax
+- Cleans `~/.bashrc`, `~/.zshrc`, `~/.profile`
+- Removes lines containing "# Hecate CLI"
+
+No changes needed.
+
+---
+
+## 2026-02-03 COMPLETE [macula-realm]: Added Missing Pairing Confirm Route
+
+### Summary
+
+Added the missing `POST /api/v1/pairing/sessions/:id/confirm` route to macula-realm.
+
+### Change
+
+**File:** `apps/macula_realm_web/lib/macula_realm_web/router.ex`
+
+```elixir
+# Hecate agent pairing sessions
+post "/pairing/sessions", PairingSessionController, :create
+get "/pairing/sessions/:id", PairingSessionController, :show
+post "/pairing/sessions/:id/confirm", PairingSessionController, :confirm  # ← ADDED
+```
+
+### Context
+
+The `PairingSessionController.confirm/2` action already existed but was not routed. This completes the pairing API for Hecate agents.
+
+---
+
+## 2026-02-03 COMPLETE: All HIGH Priority Tasks Done
+
+### Summary
+
+All tasks from cross-repo verification are complete:
+
+| # | Task | Status |
+|---|------|--------|
+| 1 | Rewrite SKILLS.md to match daemon API | ✅ COMPLETE |
+| 2 | Fix TUI client.go endpoint mismatch | ✅ COMPLETE |
+| 3 | Add PATH cleanup to uninstall.sh | ✅ Already present |
+| 4 | Add macula-realm pairing confirm route | ✅ COMPLETE |
+
+### Cross-Repo Sync Status
+
+| Repo | Sync Status |
+|------|-------------|
+| hecate-daemon | 🟢 Source of truth (hecate_api_app.erl) |
+| hecate-node | 🟢 SKILLS.md matches daemon |
+| hecate-tui | 🟢 client.go matches daemon |
+| macula-realm | 🟢 Router complete |
+
+*All repos aligned with daemon API.* 🗝️
+
+---
