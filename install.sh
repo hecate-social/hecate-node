@@ -1149,6 +1149,10 @@ init_identity() {
 
 run_pairing() {
     section "Pairing with Realm"
+    
+    echo "Pairing connects this node to the Hecate mesh."
+    echo "Without pairing, the node cannot discover or be discovered by others."
+    echo ""
 
     info "Starting pairing session..."
     local result
@@ -1415,7 +1419,6 @@ main() {
     fi
 
     ensure_docker
-    setup_ollama  # Only runs if ROLE_AI=true
     setup_daemon
     install_tui
     install_cli_wrapper
@@ -1424,12 +1427,25 @@ main() {
     start_daemon
     init_identity
 
-    # Run pairing (optional - don't fail install if pairing fails)
+    # Pairing MUST happen before optional features (models, etc.)
+    # run_pairing has its own section header
     if run_pairing; then
         PAIRING_SUCCESS=true
+        ok "Node is now part of the mesh!"
     else
         PAIRING_SUCCESS=false
+        warn "Pairing skipped or failed"
+        echo ""
+        echo "You can pair later with: ${CYAN}hecate pair${NC}"
+        echo ""
+        if ! confirm "Continue without pairing? (LLM features will be local-only)"; then
+            echo "Installation paused. Run 'hecate pair' when ready, then re-run installer."
+            exit 0
+        fi
     fi
+
+    # LLM setup happens AFTER pairing (so capabilities can be announced to mesh)
+    setup_ollama  # Only runs if ROLE_AI=true
     
     show_summary
 }
