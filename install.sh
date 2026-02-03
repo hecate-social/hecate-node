@@ -507,6 +507,31 @@ install_ollama() {
         return 1
     fi
 
+    # Ollama requires zstd for extraction (as of 2024)
+    if ! command_exists zstd; then
+        info "Installing zstd (required by Ollama)..."
+        if command_exists apt-get; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+        elif command_exists dnf; then
+            sudo dnf install -y -q zstd
+        elif command_exists yum; then
+            sudo yum install -y -q zstd
+        elif command_exists pacman; then
+            sudo pacman -S --noconfirm zstd
+        elif command_exists brew; then
+            brew install zstd
+        else
+            warn "Could not install zstd automatically"
+            echo "Please install zstd manually and try again:"
+            echo "  - Debian/Ubuntu: sudo apt-get install zstd"
+            echo "  - RHEL/CentOS/Fedora: sudo dnf install zstd"
+            echo "  - Arch: sudo pacman -S zstd"
+            echo "  - macOS: brew install zstd"
+            return 1
+        fi
+        ok "zstd installed"
+    fi
+
     info "Running Ollama install script..."
     curl -fsSL https://ollama.com/install.sh | sh
 
