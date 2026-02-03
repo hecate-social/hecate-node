@@ -1,6 +1,6 @@
-# Hecate Skills for Claude Code
+# Hecate Skills
 
-This file defines skills for interacting with the Hecate mesh network.
+Skills for interacting with the Hecate mesh network. Used by Hecate TUI and compatible AI coding assistants.
 
 ## Overview
 
@@ -218,7 +218,7 @@ mri:{type}:{realm}/{path}
 
 | Type | Description | Example |
 |------|-------------|---------|
-| `agent` | An agent identity | `mri:agent:io.macula/claude-assistant` |
+| `agent` | An agent identity | `mri:agent:io.macula/hecate-assistant` |
 | `capability` | A discoverable capability | `mri:capability:io.macula/weather-forecast` |
 | `rpc` | A callable procedure | `mri:rpc:io.macula/weather.get` |
 | `service` | A subscribable service | `mri:service:io.macula/alerts` |

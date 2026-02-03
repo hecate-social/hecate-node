@@ -74,3 +74,101 @@ Fixed two bugs in `macula-io/macula-realm` that were blocking the pairing flow:
 ---
 
 *Ready for next tasks.* 🗝️
+
+---
+
+## 2026-02-03 COMPLETE: Install Script Review & SKILLS.md Audit
+
+### Task Reference
+- 🟡 MEDIUM: Review Install Script
+- 🟢 LOW: SKILLS.md Review
+
+---
+
+### Install Script Review (`install.sh`)
+
+**Overall Assessment: Script is solid.**
+
+The install.sh is well-written with:
+- `set -euo pipefail` strict mode
+- Graceful error handling throughout
+- Good hardware detection (RAM, CPU, GPU, AVX2, storage)
+- Clear sudo explanations before elevation
+- Flexible role selection (workstation, services, ai, or combinations)
+- Pairing timeout (10 minutes, line 1168)
+
+**Cross-Platform Support:**
+
+| Platform | Status |
+|----------|--------|
+| Linux x86_64 | ✅ |
+| Linux arm64 | ✅ |
+| macOS arm64 (Apple Silicon) | ✅ |
+| macOS x86_64 (Intel) | ✅ |
+
+**Not Supported (by design):**
+- ARM32 (armv7l) - `detect_arch()` line 104 calls `fatal`
+- FreeBSD - `detect_os()` line 96 calls `fatal`
+
+These fail fast with clear error messages, which is correct behavior.
+
+**No issues found.** Script handles edge cases well.
+
+---
+
+### Uninstall Script Review (`uninstall.sh`)
+
+**Gap Found: PATH entries not cleaned up**
+
+The installer adds PATH to shell profiles (lines 1229-1234):
+```bash
+echo "# Hecate CLI" >> "$shell_profile"
+echo "$path_line" >> "$shell_profile"
+```
+
+The uninstaller does NOT remove these lines. Confirmed via grep - no matches for PATH, bashrc, zshrc, or profile in uninstall.sh.
+
+**Recommendation:** Add to uninstall.sh:
+```bash
+section "Cleaning Shell Profiles"
+for profile in ~/.bashrc ~/.zshrc ~/.profile; do
+    if [ -f "$profile" ] && grep -q "Hecate CLI" "$profile"; then
+        sed -i '/# Hecate CLI/d' "$profile"
+        sed -i '/\.local\/bin/d' "$profile"
+        ok "Cleaned $profile"
+    fi
+done
+```
+
+---
+
+### SKILLS.md Review
+
+**Missing Documentation:**
+
+1. **LLM endpoints** - The CLI wrapper (lines 990-1027) has LLM commands but SKILLS.md doesn't document the REST API:
+   - `GET /api/llm/models`
+   - `POST /api/llm/chat`
+   - `GET /api/llm/health`
+
+2. **Pairing endpoints** - CLI has `hecate pair` but REST API not documented:
+   - `POST /api/pairing/start`
+   - `GET /api/pairing/status`
+
+3. **Identity init** - CLI has `hecate init` but REST API not documented:
+   - `POST /identity/init`
+
+**Documented features are correct** - Capabilities, RPC, PubSub, Social, UCAN all look good.
+
+---
+
+### Summary
+
+| Finding | Severity | Action |
+|---------|----------|--------|
+| Install script | ✅ Good | None needed |
+| Uninstall PATH cleanup | 🟡 Medium | Add shell profile cleanup |
+| SKILLS.md LLM docs | 🟢 Low | Add LLM section |
+| SKILLS.md pairing docs | 🟢 Low | Add pairing section |
+
+*Review complete.* 🗝️

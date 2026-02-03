@@ -6,7 +6,7 @@
 
 ## Current Task
 
-**COMPLETE: Install Script Hardened** — No jq dependency, auto-PATH configuration
+**COMPLETE: Install Script Review & SKILLS.md Audit**
 
 ## Last Active
 
@@ -50,5 +50,33 @@
 **Commits:**
 - `fix: Remove jq dependency, auto-configure PATH`
 - `fix: Handle unset ZSH_VERSION in bash strict mode`
+
+---
+
+### 2026-02-03 Session (Review Tasks)
+
+**Status:** Complete
+
+**Reviewed:**
+- `install.sh` (1424 lines) - Edge cases, cross-platform, error handling
+- `uninstall.sh` (197 lines) - Cleanup completeness
+- `SKILLS.md` (291 lines) - Hecate Skills coverage
+
+**Findings:**
+1. **Install script**: Solid. No issues found.
+   - Strict mode, good error handling
+   - Hardware detection works well
+   - Unsupported platforms (ARM32, FreeBSD) fail fast with clear errors
+
+2. **Uninstall script**: One gap
+   - Does NOT remove PATH entries added to shell profiles
+   - Otherwise complete (containers, binaries, data, Ollama)
+
+3. **SKILLS.md**: Missing documentation for newer features
+   - LLM REST API (`/api/llm/*`)
+   - Pairing REST API (`/api/pairing/*`)
+   - Identity init (`/identity/init`)
+
+**Full findings in RESPONSES.md**
 
 ---

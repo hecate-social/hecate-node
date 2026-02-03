@@ -21,7 +21,7 @@ The installer lets you select one or more roles for your node:
 
 | Role | What It Adds | Use Case |
 |------|--------------|----------|
-| **Workstation** | TUI + Claude Skills | Development and testing |
+| **Workstation** | TUI + Hecate Skills | Development and testing |
 | **Services** | Network-exposed API | Hosting capabilities |
 | **AI** | Ollama + models | Serving AI to network |
 
@@ -34,7 +34,7 @@ What will this node be used for?
 You can select multiple roles by entering numbers separated by spaces
 
   1) Developer Workstation
-     TUI + Claude Code skills for writing agents
+     TUI + Hecate Skills for writing agents
 
   2) Services Host
      Host capabilities on the mesh (API exposed to network)
@@ -138,7 +138,7 @@ Components are installed based on which roles you select:
 |-----------|:-----------:|:--------:|:--:|:---:|
 | Hecate Daemon | ✅ | ✅ | ✅ | ✅ |
 | Hecate TUI | ✅ | - | - | ✅ |
-| Claude Skills | ✅ | - | - | ✅ |
+| Hecate Skills | ✅ | - | - | ✅ |
 | Network API | - | ✅ | ✅ | ✅ |
 | Ollama | optional | - | ✅ | ✅ |
 | Systemd Service | - | ✅ | ✅ | - |
@@ -153,7 +153,7 @@ Components are installed based on which roles you select:
 | `~/.local/bin/hecate-tui` | TUI binary |
 | `~/.hecate/` | Data directory |
 | `~/.hecate/config/hecate.toml` | Configuration |
-| `~/.claude/HECATE_SKILLS.md` | Claude Code skills |
+| `~/.hecate/SKILLS.md` | Hecate Skills |
 
 ## Configuration
 
@@ -233,7 +233,7 @@ Or manually:
 ```bash
 rm ~/.local/bin/hecate ~/.local/bin/hecate-tui
 rm -rf ~/.hecate
-rm ~/.claude/HECATE_SKILLS.md
+rm ~/.hecate/SKILLS.md
 sudo systemctl disable hecate 2>/dev/null
 sudo rm /etc/systemd/system/hecate.service 2>/dev/null
 ```

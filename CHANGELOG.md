@@ -16,10 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Installs Erlang OTP 27+ and Elixir via mise/asdf
   - Downloads hecate-daemon from GitHub releases
   - Downloads hecate-tui from GitHub releases
-  - Installs Claude Code skills to `~/.claude/`
+  - Installs Hecate Skills to `~/.hecate/`
   - Sets up `~/.hecate/` data directory
 - `uninstall.sh` - Clean removal script
-- `SKILLS.md` - Claude Code skills for Hecate mesh operations
+- `SKILLS.md` - Hecate Skills for Hecate mesh operations
   - Daemon management commands
   - Capability discovery and announcement
   - RPC registration and calls

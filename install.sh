@@ -1060,7 +1060,29 @@ WRAPPER
 }
 
 # -----------------------------------------------------------------------------
-# (Claude skills section removed - Hecate TUI is the AI interface now)
+# Hecate Skills Installation
+# -----------------------------------------------------------------------------
+
+install_skills() {
+    # Skills are for workstation role
+    if [ "$ROLE_WORKSTATION" = false ]; then
+        return
+    fi
+
+    section "Installing Hecate Skills"
+
+    # Install to ~/.hecate/ (used by TUI and compatible AI assistants)
+    mkdir -p "${INSTALL_DIR}"
+    
+    download_file "${RAW_BASE}/SKILLS.md" "${INSTALL_DIR}/SKILLS.md"
+    
+    ok "Hecate Skills installed to ${INSTALL_DIR}/SKILLS.md"
+    
+    # Symlink for AI coding assistants that look for project-level skills
+    if [ ! -f "$HOME/HECATE_SKILLS.md" ]; then
+        ln -sf "${INSTALL_DIR}/SKILLS.md" "$HOME/HECATE_SKILLS.md" 2>/dev/null || true
+    fi
+}
 
 # -----------------------------------------------------------------------------
 # Start Daemon
@@ -1381,6 +1403,7 @@ main() {
     echo "  • Hecate daemon (via Docker Compose)"
     [ "$ROLE_AI" = true ] && echo "  • Ollama + models (AI Provider)"
     [ "$ROLE_WORKSTATION" = true ] && echo "  • Hecate TUI (native binary)"
+    [ "$ROLE_WORKSTATION" = true ] && echo "  • Hecate Skills"
     echo "  • Watchtower (auto-updates)"
     echo ""
 
@@ -1393,6 +1416,7 @@ main() {
     setup_daemon
     install_tui
     install_cli_wrapper
+    install_skills
     setup_path
     start_daemon
     init_identity

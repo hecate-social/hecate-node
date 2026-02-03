@@ -22,7 +22,7 @@ This is the **one-command installer** for the Hecate stack.
 curl -fsSL https://hecate.social/install.sh | bash
 ```
 
-Installs: daemon + TUI + Claude skills + BEAM runtime
+Installs: daemon + TUI + Hecate Skills + BEAM runtime
 
 ---
 
@@ -43,7 +43,7 @@ Report findings in RESPONSES.md.
 
 ### 🟢 LOW: SKILLS.md Review
 
-Check that SKILLS.md contains the right Claude Code integration for mesh operations.
+Check that SKILLS.md contains the right Hecate Skills for mesh operations.
 
 ---
 
