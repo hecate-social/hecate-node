@@ -786,15 +786,16 @@ services:
       retries: 3
       start_period: 10s
 
-  # Auto-update via Watchtower (LinuxServer fork for modern Docker API)
+  # Auto-update via Watchtower
   # Manual update also available: hecate update
   watchtower:
-    image: lscr.io/linuxserver/watchtower:latest
+    image: containrrr/watchtower
     container_name: hecate-watchtower
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
+      - DOCKER_API_VERSION=1.44  # Required for modern Docker daemons
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_POLL_INTERVAL=3600  # Check every hour
       - WATCHTOWER_INCLUDE_STOPPED=true
