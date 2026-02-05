@@ -146,6 +146,7 @@ show_banner() {
         echo "$HECATE_AVATAR_B64" | base64 -d 2>/dev/null || true
         echo ""
         echo -e "${MAGENTA}${BOLD}    H E C A T E${NC}"
+        echo -e "${DIM}    European Decentralized AI Infrastructure${NC}"
         echo -e "${DIM}    Goddess of crossroads. Keeper of keys.${NC}"
         echo ""
     else
@@ -153,7 +154,7 @@ show_banner() {
         echo ""
         echo "    🗝️  H E C A T E  🗝️"
         echo ""
-        echo "    Hecate Node Installer"
+        echo "    European Decentralized AI Infrastructure"
         echo "    Mesh networking for AI agents"
         echo ""
     fi
@@ -885,6 +886,8 @@ cd "$HECATE_DIR"
 case "${1:-help}" in
     start)
         echo "Starting Hecate daemon..."
+        # Remove orphaned containers from previous installs
+        docker rm -f hecate-daemon hecate-watchtower 2>/dev/null || true
         docker compose up -d
         echo "Hecate is running. API: http://localhost:4444"
         ;;
@@ -1029,7 +1032,8 @@ case "${1:-help}" in
         esac
         ;;
     *)
-        echo "Hecate - Mesh networking for AI agents"
+        echo "Hecate - European Decentralized AI Infrastructure"
+        echo "Mesh networking for AI agents"
         echo ""
         echo "Usage: hecate <command>"
         echo ""
@@ -1095,10 +1099,13 @@ start_daemon() {
     section "Starting Hecate Daemon"
 
     cd "${INSTALL_DIR}"
-    
+
     info "Pulling latest image..."
     docker compose pull --quiet
-    
+
+    # Remove orphaned containers from previous installs
+    docker rm -f hecate-daemon hecate-watchtower 2>/dev/null || true
+
     info "Starting containers..."
     docker compose up -d
     
@@ -1292,6 +1299,7 @@ show_summary() {
     local_ip=$(get_local_ip)
 
     echo -e "${GREEN}${BOLD}The goddess has arrived.${NC}"
+    echo -e "${DIM}Sovereign. Local-first. Yours.${NC}"
     echo ""
     
     # Show pairing status
@@ -1355,7 +1363,7 @@ show_summary() {
 # -----------------------------------------------------------------------------
 
 show_help() {
-    echo "Hecate Node Installer"
+    echo "Hecate Node Installer - European Decentralized AI Infrastructure"
     echo ""
     echo "Usage: curl -fsSL https://macula.io/hecate/install.sh | bash"
     echo ""
