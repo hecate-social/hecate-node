@@ -139,8 +139,19 @@ if [ -d "${INSTALL_DIR}" ]; then
     echo ""
 
     if confirm "Delete ${INSTALL_DIR}? ${RED}(includes config and data)${NC}"; then
-        rm -rf "${INSTALL_DIR}"
-        ok "Removed ${INSTALL_DIR}"
+        # Try regular rm first, fall back to sudo if permission denied
+        if rm -rf "${INSTALL_DIR}" 2>/dev/null; then
+            ok "Removed ${INSTALL_DIR}"
+        else
+            warn "Some files are owned by root (daemon ran with elevated privileges)"
+            info "Attempting removal with sudo..."
+            if sudo rm -rf "${INSTALL_DIR}"; then
+                ok "Removed ${INSTALL_DIR}"
+            else
+                warn "Failed to remove ${INSTALL_DIR}"
+                echo "Try manually: sudo rm -rf ${INSTALL_DIR}"
+            fi
+        fi
     else
         warn "Kept ${INSTALL_DIR}"
     fi
