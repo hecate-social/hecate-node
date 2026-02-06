@@ -731,12 +731,12 @@ pull_selected_models() {
 
     for model in "${SELECTED_MODELS[@]}"; do
         echo -e "${CYAN}→${NC} Pulling ${BOLD}${model}${NC}..."
-        if ollama pull "${model}" 2>&1 | grep -E "pulling|verifying|writing|success" | tail -5; then
+        if ollama pull "${model}"; then
             ok "${model} ready"
-            ((success++))
+            success=$((success + 1))
         else
             warn "Failed to pull ${model}"
-            ((failed++))
+            failed=$((failed + 1))
         fi
         echo ""
     done
