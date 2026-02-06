@@ -1,0 +1,69 @@
+---
+# k3s Agent (Worker) Installation
+
+- name: Get server facts
+  set_fact:
+    k3s_server_url: "{{ hostvars[groups['server'][0]]['k3s_server_url'] }}"
+    k3s_token: "{{ hostvars[groups['server'][0]]['k3s_token'] }}"
+
+- name: Display join target
+  debug:
+    msg: "Joining cluster at {{ k3s_server_url }}"
+
+- name: Check if k3s-agent is installed
+  stat:
+    path: /etc/systemd/system/k3s-agent.service
+  register: k3s_agent_service
+
+- name: Check for existing k3s server
+  stat:
+    path: /etc/systemd/system/k3s.service
+  register: k3s_server_service
+
+- name: Remove existing k3s server if present
+  when: k3s_server_service.stat.exists
+  block:
+    - name: Warn about existing server
+      debug:
+        msg: "WARNING: This node has k3s SERVER installed. Uninstalling..."
+
+    - name: Run k3s uninstall
+      command: /usr/local/bin/k3s-uninstall.sh
+      args:
+        removes: /usr/local/bin/k3s
+
+- name: Install k3s agent
+  when: not k3s_agent_service.stat.exists
+  block:
+    - name: Download k3s install script
+      get_url:
+        url: https://get.k3s.io
+        dest: /tmp/k3s-install.sh
+        mode: '0755'
+
+    - name: Run k3s agent install
+      command: /tmp/k3s-install.sh
+      environment:
+        K3S_URL: "{{ k3s_server_url }}"
+        K3S_TOKEN: "{{ k3s_token }}"
+      args:
+        creates: /usr/local/bin/k3s
+
+    - name: Wait for agent to connect
+      pause:
+        seconds: 10
+
+- name: Ensure k3s-agent is running
+  service:
+    name: k3s-agent
+    state: started
+    enabled: yes
+
+- name: Verify agent registered with server
+  delegate_to: "{{ groups['server'][0] }}"
+  command: kubectl get node {{ inventory_hostname }}
+  register: node_status
+  until: node_status.rc == 0
+  retries: 12
+  delay: 10
+  changed_when: false

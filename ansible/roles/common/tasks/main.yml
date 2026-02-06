@@ -1,0 +1,38 @@
+---
+# Common tasks for all Hecate nodes
+
+- name: Gather facts
+  setup:
+    gather_subset:
+      - hardware
+      - network
+
+- name: Display node info
+  debug:
+    msg: "{{ inventory_hostname }}: {{ ansible_memtotal_mb }}MB RAM, {{ ansible_processor_vcpus }} CPUs"
+
+- name: Install common dependencies
+  package:
+    name:
+      - curl
+      - ca-certificates
+    state: present
+
+- name: Configure firewall (ufw)
+  include_tasks: firewall-ufw.yml
+  when: ansible_facts.services['ufw.service'] is defined or ansible_os_family == 'Debian'
+  tags: [firewall]
+
+- name: Configure firewall (firewalld)
+  include_tasks: firewall-firewalld.yml
+  when: ansible_facts.services['firewalld.service'] is defined
+  tags: [firewall]
+
+- name: Create hecate directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - /home/{{ ansible_user }}/.hecate
+    - /run/hecate

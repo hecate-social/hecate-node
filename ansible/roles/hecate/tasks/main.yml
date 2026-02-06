@@ -1,0 +1,105 @@
+---
+# Hecate Daemon Deployment
+
+- name: Create hecate namespace
+  kubernetes.core.k8s:
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: hecate
+
+- name: Deploy Hecate ConfigMap
+  kubernetes.core.k8s:
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: hecate-config
+        namespace: hecate
+      data:
+        HECATE_REALM: "{{ hecate_realm | default('io.macula') }}"
+        HECATE_BOOTSTRAP: "{{ hecate_bootstrap | default('https://boot.macula.io:443') }}"
+        HECATE_API_HOST: "127.0.0.1"
+        HECATE_API_PORT: "4444"
+        HECATE_SOCKET_PATH: "/run/hecate/daemon.sock"
+        OLLAMA_HOST: "{{ ollama_host | default('http://localhost:11434') }}"
+
+- name: Deploy Hecate DaemonSet
+  kubernetes.core.k8s:
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+    state: present
+    definition:
+      apiVersion: apps/v1
+      kind: DaemonSet
+      metadata:
+        name: hecate-daemon
+        namespace: hecate
+        labels:
+          app: hecate-daemon
+      spec:
+        selector:
+          matchLabels:
+            app: hecate-daemon
+        template:
+          metadata:
+            labels:
+              app: hecate-daemon
+          spec:
+            hostNetwork: true
+            containers:
+              - name: daemon
+                image: "{{ hecate_image | default('ghcr.io/hecate-social/hecate-daemon:main') }}"
+                envFrom:
+                  - configMapRef:
+                      name: hecate-config
+                volumeMounts:
+                  - name: socket-dir
+                    mountPath: /run/hecate
+                  - name: data-dir
+                    mountPath: /var/lib/hecate
+                resources:
+                  limits:
+                    memory: "512Mi"
+                    cpu: "500m"
+                  requests:
+                    memory: "256Mi"
+                    cpu: "100m"
+            volumes:
+              - name: socket-dir
+                hostPath:
+                  path: /run/hecate
+                  type: DirectoryOrCreate
+              - name: data-dir
+                hostPath:
+                  path: /var/lib/hecate
+                  type: DirectoryOrCreate
+
+- name: Wait for Hecate daemon pods
+  command: >
+    kubectl wait --for=condition=ready pod
+    -l app=hecate-daemon
+    -n hecate
+    --timeout=120s
+  environment:
+    KUBECONFIG: "/home/{{ ansible_user }}/.kube/config"
+  changed_when: false
+
+- name: Get Hecate pod status
+  command: kubectl get pods -n hecate -o wide
+  register: hecate_pods
+  changed_when: false
+  environment:
+    KUBECONFIG: "/home/{{ ansible_user }}/.kube/config"
+
+- name: Display Hecate status
+  debug:
+    msg: |
+
+      Hecate Daemon Deployed!
+
+      {{ hecate_pods.stdout }}

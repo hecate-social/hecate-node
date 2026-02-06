@@ -1,0 +1,77 @@
+---
+# UFW firewall configuration
+
+- name: Check if ufw is installed
+  command: which ufw
+  register: ufw_check
+  changed_when: false
+  failed_when: false
+
+- name: Configure UFW rules
+  when: ufw_check.rc == 0
+  block:
+    - name: Allow SSH
+      ufw:
+        rule: allow
+        port: '22'
+        proto: tcp
+        comment: 'SSH'
+
+    # Server-specific ports
+    - name: Allow k3s API (server)
+      ufw:
+        rule: allow
+        port: '6443'
+        proto: tcp
+        comment: 'k3s API'
+      when: k3s_role == 'server'
+
+    # k3s cluster ports (server + agents)
+    - name: Allow Macula mesh
+      ufw:
+        rule: allow
+        port: '4433'
+        proto: udp
+        comment: 'Macula mesh QUIC'
+      when: k3s_role in ['server', 'agent']
+
+    - name: Allow EPMD (Erlang)
+      ufw:
+        rule: allow
+        port: '4369'
+        proto: tcp
+        comment: 'EPMD Erlang'
+      when: k3s_role in ['server', 'agent']
+
+    - name: Allow Erlang distribution
+      ufw:
+        rule: allow
+        port: '9100'
+        proto: tcp
+        comment: 'Erlang distribution'
+      when: k3s_role in ['server', 'agent']
+
+    - name: Allow Flannel VXLAN
+      ufw:
+        rule: allow
+        port: '8472'
+        proto: udp
+        comment: 'Flannel VXLAN'
+      when: k3s_role in ['server', 'agent']
+
+    - name: Allow Kubelet
+      ufw:
+        rule: allow
+        port: '10250'
+        proto: tcp
+        comment: 'Kubelet'
+      when: k3s_role in ['server', 'agent']
+
+    # Inference node ports
+    - name: Allow Ollama API (inference)
+      ufw:
+        rule: allow
+        port: '11434'
+        proto: tcp
+        comment: 'Ollama API'
+      when: k3s_role == 'inference'

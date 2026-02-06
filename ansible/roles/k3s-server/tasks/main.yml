@@ -1,0 +1,105 @@
+---
+# k3s Server (Control Plane) Installation
+
+- name: Check if k3s is installed
+  stat:
+    path: /usr/local/bin/k3s
+  register: k3s_binary
+
+- name: Check existing k3s role
+  stat:
+    path: /etc/systemd/system/k3s.service
+  register: k3s_service
+
+- name: Check for existing k3s-agent
+  stat:
+    path: /etc/systemd/system/k3s-agent.service
+  register: k3s_agent_service
+
+- name: Fail if node is currently an agent
+  fail:
+    msg: |
+      This node is currently a k3s AGENT.
+      Run 'sudo /usr/local/bin/k3s-agent-uninstall.sh' first,
+      or remove this host from [server] group.
+  when: k3s_agent_service.stat.exists
+
+- name: Install k3s server
+  when: not k3s_service.stat.exists
+  block:
+    - name: Download k3s install script
+      get_url:
+        url: https://get.k3s.io
+        dest: /tmp/k3s-install.sh
+        mode: '0755'
+
+    - name: Run k3s server install
+      command: /tmp/k3s-install.sh
+      environment:
+        INSTALL_K3S_EXEC: "server --disable traefik"
+      args:
+        creates: /usr/local/bin/k3s
+
+    - name: Wait for k3s to be ready
+      command: k3s kubectl get nodes
+      register: k3s_ready
+      until: k3s_ready.rc == 0
+      retries: 30
+      delay: 5
+
+- name: Ensure k3s is running
+  service:
+    name: k3s
+    state: started
+    enabled: yes
+
+- name: Get node token
+  slurp:
+    src: /var/lib/rancher/k3s/server/node-token
+  register: k3s_token_raw
+
+- name: Set k3s token fact
+  set_fact:
+    k3s_token: "{{ k3s_token_raw.content | b64decode | trim }}"
+    k3s_server_url: "https://{{ ansible_default_ipv4.address }}:6443"
+
+- name: Display join information
+  debug:
+    msg: |
+
+      k3s Server Ready!
+
+      Server URL: {{ k3s_server_url }}
+      Token: {{ k3s_token }}
+
+      Agents will join automatically via Ansible.
+
+- name: Setup kubeconfig for user
+  block:
+    - name: Create .kube directory
+      file:
+        path: "/home/{{ ansible_user }}/.kube"
+        state: directory
+        owner: "{{ ansible_user }}"
+        mode: '0755'
+
+    - name: Copy kubeconfig
+      copy:
+        src: /etc/rancher/k3s/k3s.yaml
+        dest: "/home/{{ ansible_user }}/.kube/config"
+        remote_src: yes
+        owner: "{{ ansible_user }}"
+        mode: '0600'
+
+    - name: Fix kubeconfig server address
+      replace:
+        path: "/home/{{ ansible_user }}/.kube/config"
+        regexp: 'https://127.0.0.1:6443'
+        replace: "{{ k3s_server_url }}"
+
+- name: Save join script
+  template:
+    src: join-cluster.sh.j2
+    dest: "/home/{{ ansible_user }}/.hecate/join-cluster.sh"
+    owner: "{{ ansible_user }}"
+    mode: '0755'

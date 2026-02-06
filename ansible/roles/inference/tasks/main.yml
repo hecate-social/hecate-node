@@ -1,0 +1,75 @@
+---
+# Inference Node (Ollama) Installation
+
+- name: Check if Ollama is installed
+  command: which ollama
+  register: ollama_check
+  changed_when: false
+  failed_when: false
+
+- name: Install Ollama
+  when: ollama_check.rc != 0
+  block:
+    - name: Download Ollama install script
+      get_url:
+        url: https://ollama.com/install.sh
+        dest: /tmp/ollama-install.sh
+        mode: '0755'
+
+    - name: Run Ollama install
+      shell: /tmp/ollama-install.sh
+      args:
+        creates: /usr/local/bin/ollama
+      environment:
+        HOME: "/root"
+
+- name: Create Ollama service override directory
+  file:
+    path: /etc/systemd/system/ollama.service.d
+    state: directory
+    mode: '0755'
+
+- name: Configure Ollama for network access
+  copy:
+    content: |
+      [Service]
+      Environment="OLLAMA_HOST=0.0.0.0"
+    dest: /etc/systemd/system/ollama.service.d/override.conf
+    mode: '0644'
+  notify: restart ollama
+
+- name: Reload systemd
+  systemd:
+    daemon_reload: yes
+
+- name: Ensure Ollama is running
+  service:
+    name: ollama
+    state: started
+    enabled: yes
+
+- name: Wait for Ollama API
+  uri:
+    url: http://localhost:11434/api/tags
+    method: GET
+  register: ollama_api
+  until: ollama_api.status == 200
+  retries: 30
+  delay: 2
+
+- name: Pull default models
+  command: ollama pull {{ item }}
+  loop: "{{ ollama_models | default(['llama3.2']) }}"
+  register: pull_result
+  changed_when: "'pulling' in pull_result.stdout"
+
+- name: Display Ollama status
+  debug:
+    msg: |
+
+      Ollama Inference Node Ready!
+
+      URL: http://{{ ansible_default_ipv4.address }}:11434
+
+      To use from cluster nodes, set:
+        OLLAMA_HOST=http://{{ ansible_default_ipv4.address }}:11434
