@@ -485,8 +485,9 @@ ensure_docker() {
 check_ollama() {
     if command_exists ollama; then
         local ollama_version
-        ollama_version=$(ollama --version 2>/dev/null | head -1)
-        ok "Ollama installed: ${ollama_version}"
+        # Extract just the version number, ignoring warnings
+        ollama_version=$(ollama --version 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+        ok "Ollama installed: v${ollama_version:-unknown}"
         return 0
     else
         return 1
