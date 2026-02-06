@@ -236,20 +236,73 @@ detect_hardware() {
 configure_firewall() {
     section "Firewall Configuration"
 
-    # Detect firewall tool
+    # Detect active firewall
     local fw_tool=""
+    local fw_active=false
+
+    # Check ufw (Ubuntu/Debian)
     if command_exists ufw; then
-        fw_tool="ufw"
-    elif command_exists firewall-cmd; then
-        fw_tool="firewalld"
-    else
-        warn "No firewall detected (ufw/firewalld)"
-        info "Ensure these ports are open manually:"
+        if sudo ufw status 2>/dev/null | grep -q "Status: active"; then
+            fw_tool="ufw"
+            fw_active=true
+        elif sudo ufw status 2>/dev/null | grep -q "Status: inactive"; then
+            fw_tool="ufw"
+            fw_active=false
+        fi
+    fi
+
+    # Check firewalld (RHEL/Fedora)
+    if [ -z "$fw_tool" ] && command_exists firewall-cmd; then
+        if sudo firewall-cmd --state 2>/dev/null | grep -q "running"; then
+            fw_tool="firewalld"
+            fw_active=true
+        fi
+    fi
+
+    # Check nftables (Arch/modern distros)
+    if [ -z "$fw_tool" ] && command_exists nft; then
+        if sudo nft list ruleset 2>/dev/null | grep -q "table"; then
+            fw_tool="nftables"
+            fw_active=true
+        else
+            fw_tool="nftables"
+            fw_active=false
+        fi
+    fi
+
+    # Check iptables (legacy)
+    if [ -z "$fw_tool" ] && command_exists iptables; then
+        local rules_count
+        rules_count=$(sudo iptables -L -n 2>/dev/null | grep -c "^Chain" || echo "0")
+        if [ "$rules_count" -gt 3 ]; then
+            fw_tool="iptables"
+            fw_active=true
+        else
+            fw_tool="iptables"
+            fw_active=false
+        fi
+    fi
+
+    # No firewall found
+    if [ -z "$fw_tool" ]; then
+        ok "No firewall detected - all ports open by default"
+        echo ""
+        echo "For reference, these ports will be used:"
         show_required_ports
         return
     fi
 
-    info "Detected firewall: ${fw_tool}"
+    # Firewall found but not active
+    if [ "$fw_active" = false ]; then
+        ok "Firewall (${fw_tool}) installed but not active"
+        echo ""
+        echo "For reference, these ports will be needed if enabled:"
+        show_required_ports
+        return
+    fi
+
+    # Active firewall - offer configuration
+    info "Active firewall: ${fw_tool}"
     echo ""
     show_required_ports
     echo ""
@@ -265,6 +318,12 @@ configure_firewall() {
             ;;
         firewalld)
             configure_firewalld
+            ;;
+        nftables)
+            configure_nftables
+            ;;
+        iptables)
+            configure_iptables
             ;;
     esac
 }
@@ -371,6 +430,72 @@ configure_firewalld() {
 
     sudo firewall-cmd --reload
     ok "firewalld configured"
+}
+
+configure_nftables() {
+    info "Configuring nftables..."
+
+    # Create hecate table if needed
+    sudo nft add table inet hecate 2>/dev/null || true
+    sudo nft add chain inet hecate input '{ type filter hook input priority 0; policy accept; }' 2>/dev/null || true
+
+    case "$K3S_ROLE" in
+        inference)
+            sudo nft add rule inet hecate input tcp dport 11434 accept comment \"Ollama API\"
+            ;;
+        standalone)
+            sudo nft add rule inet hecate input udp dport 4433 accept comment \"Macula mesh\"
+            ;;
+        server)
+            sudo nft add rule inet hecate input tcp dport 6443 accept comment \"k3s API\"
+            sudo nft add rule inet hecate input udp dport 4433 accept comment \"Macula mesh\"
+            sudo nft add rule inet hecate input tcp dport 4369 accept comment \"EPMD\"
+            sudo nft add rule inet hecate input tcp dport 9100 accept comment \"Erlang dist\"
+            sudo nft add rule inet hecate input udp dport 8472 accept comment \"Flannel VXLAN\"
+            sudo nft add rule inet hecate input tcp dport 10250 accept comment \"Kubelet\"
+            ;;
+        agent)
+            sudo nft add rule inet hecate input udp dport 4433 accept comment \"Macula mesh\"
+            sudo nft add rule inet hecate input tcp dport 4369 accept comment \"EPMD\"
+            sudo nft add rule inet hecate input tcp dport 9100 accept comment \"Erlang dist\"
+            sudo nft add rule inet hecate input udp dport 8472 accept comment \"Flannel VXLAN\"
+            sudo nft add rule inet hecate input tcp dport 10250 accept comment \"Kubelet\"
+            ;;
+    esac
+
+    ok "nftables configured"
+    info "To persist: sudo nft list ruleset > /etc/nftables.conf"
+}
+
+configure_iptables() {
+    info "Configuring iptables..."
+
+    case "$K3S_ROLE" in
+        inference)
+            sudo iptables -A INPUT -p tcp --dport 11434 -j ACCEPT -m comment --comment "Ollama API"
+            ;;
+        standalone)
+            sudo iptables -A INPUT -p udp --dport 4433 -j ACCEPT -m comment --comment "Macula mesh"
+            ;;
+        server)
+            sudo iptables -A INPUT -p tcp --dport 6443 -j ACCEPT -m comment --comment "k3s API"
+            sudo iptables -A INPUT -p udp --dport 4433 -j ACCEPT -m comment --comment "Macula mesh"
+            sudo iptables -A INPUT -p tcp --dport 4369 -j ACCEPT -m comment --comment "EPMD"
+            sudo iptables -A INPUT -p tcp --dport 9100 -j ACCEPT -m comment --comment "Erlang dist"
+            sudo iptables -A INPUT -p udp --dport 8472 -j ACCEPT -m comment --comment "Flannel VXLAN"
+            sudo iptables -A INPUT -p tcp --dport 10250 -j ACCEPT -m comment --comment "Kubelet"
+            ;;
+        agent)
+            sudo iptables -A INPUT -p udp --dport 4433 -j ACCEPT -m comment --comment "Macula mesh"
+            sudo iptables -A INPUT -p tcp --dport 4369 -j ACCEPT -m comment --comment "EPMD"
+            sudo iptables -A INPUT -p tcp --dport 9100 -j ACCEPT -m comment --comment "Erlang dist"
+            sudo iptables -A INPUT -p udp --dport 8472 -j ACCEPT -m comment --comment "Flannel VXLAN"
+            sudo iptables -A INPUT -p tcp --dport 10250 -j ACCEPT -m comment --comment "Kubelet"
+            ;;
+    esac
+
+    ok "iptables configured"
+    info "To persist: sudo iptables-save > /etc/iptables/rules.v4"
 }
 
 # -----------------------------------------------------------------------------
