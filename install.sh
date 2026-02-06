@@ -502,8 +502,61 @@ configure_iptables() {
 # Node Role Selection
 # -----------------------------------------------------------------------------
 
+detect_existing_k3s() {
+    # Detect existing k3s installation and its role
+    EXISTING_K3S=""
+    EXISTING_K3S_ROLE=""
+
+    if command_exists k3s; then
+        EXISTING_K3S="true"
+        # Check if it's a server or agent
+        if [ -f /etc/systemd/system/k3s.service ]; then
+            EXISTING_K3S_ROLE="server"
+        elif [ -f /etc/systemd/system/k3s-agent.service ]; then
+            EXISTING_K3S_ROLE="agent"
+        elif systemctl is-active --quiet k3s 2>/dev/null; then
+            EXISTING_K3S_ROLE="server"
+        elif systemctl is-active --quiet k3s-agent 2>/dev/null; then
+            EXISTING_K3S_ROLE="agent"
+        fi
+    fi
+}
+
+uninstall_existing_k3s() {
+    info "Uninstalling existing k3s..."
+
+    if [ -f /usr/local/bin/k3s-uninstall.sh ]; then
+        sudo /usr/local/bin/k3s-uninstall.sh
+        ok "k3s server uninstalled"
+    elif [ -f /usr/local/bin/k3s-agent-uninstall.sh ]; then
+        sudo /usr/local/bin/k3s-agent-uninstall.sh
+        ok "k3s agent uninstalled"
+    else
+        warn "No k3s uninstall script found"
+        return 1
+    fi
+
+    EXISTING_K3S=""
+    EXISTING_K3S_ROLE=""
+    return 0
+}
+
 select_k3s_role() {
     section "Node Role Selection"
+
+    # Detect existing k3s
+    detect_existing_k3s
+
+    if [ -n "$EXISTING_K3S" ]; then
+        echo -e "${YELLOW}${BOLD}Existing k3s installation detected!${NC}"
+        echo -e "  Role: ${CYAN}${EXISTING_K3S_ROLE}${NC}"
+        if [ "$EXISTING_K3S_ROLE" = "server" ]; then
+            local age=""
+            age=$(kubectl get nodes -o jsonpath='{.items[0].metadata.creationTimestamp}' 2>/dev/null || echo "unknown")
+            echo -e "  Created: ${age}"
+        fi
+        echo ""
+    fi
 
     echo "What type of node is this?"
     echo ""
@@ -528,6 +581,20 @@ select_k3s_role() {
         2) K3S_ROLE="server" ;;
         3)
             K3S_ROLE="agent"
+
+            # Check if existing k3s is a server - need to uninstall first
+            if [ "$EXISTING_K3S_ROLE" = "server" ]; then
+                echo ""
+                warn "This node is currently a k3s SERVER"
+                echo "To join another cluster as an agent, the existing k3s must be removed."
+                echo ""
+                if confirm "Uninstall existing k3s server?" "y"; then
+                    uninstall_existing_k3s
+                else
+                    fatal "Cannot install as agent while server is running"
+                fi
+            fi
+
             echo ""
             echo -en "  Server URL (e.g., https://192.168.1.10:6443): " > /dev/tty
             read -r K3S_SERVER_URL < /dev/tty
@@ -739,13 +806,58 @@ setup_kubeconfig() {
 
     # Show join command for server mode
     if [ "$K3S_ROLE" = "server" ]; then
-        echo ""
-        echo -e "${CYAN}${BOLD}To add agent nodes, run on the agent:${NC}"
-        echo ""
         local token
         token=$(sudo cat /var/lib/rancher/k3s/server/node-token)
-        echo "  curl -sfL https://get.k3s.io | K3S_URL=https://${local_ip}:6443 K3S_TOKEN=${token} sh -s - agent"
+        local join_url="https://${local_ip}:6443"
+        local join_cmd="curl -sfL https://get.k3s.io | K3S_URL=${join_url} K3S_TOKEN=${token} sh -s - agent"
+
+        # Save join script for easy distribution
+        local join_script="${INSTALL_DIR}/join-cluster.sh"
+        cat > "$join_script" << EOF
+#!/bin/bash
+# Join this machine to the Hecate cluster at ${local_ip}
+# Generated on $(date)
+# Run this script on agent nodes to join the cluster
+
+set -e
+
+echo "Joining cluster at ${join_url}..."
+curl -sfL https://get.k3s.io | K3S_URL=${join_url} K3S_TOKEN=${token} sh -s - agent
+
+echo ""
+echo "Done! This node should now appear in: kubectl get nodes"
+EOF
+        chmod +x "$join_script"
+
         echo ""
+        echo -e "${CYAN}${BOLD}To add agent nodes:${NC}"
+        echo ""
+        echo -e "  ${BOLD}Option 1:${NC} Copy this command to agent nodes:"
+        echo ""
+        echo "  $join_cmd"
+        echo ""
+        echo -e "  ${BOLD}Option 2:${NC} Copy the join script to agents:"
+        echo ""
+        echo "    scp ${join_script} user@agent-node:~/"
+        echo "    ssh user@agent-node 'sudo ~/join-cluster.sh'"
+        echo ""
+
+        # Try to copy to clipboard
+        if command_exists xclip; then
+            echo "$join_cmd" | xclip -selection clipboard 2>/dev/null && \
+                ok "Join command copied to clipboard (xclip)"
+        elif command_exists xsel; then
+            echo "$join_cmd" | xsel --clipboard 2>/dev/null && \
+                ok "Join command copied to clipboard (xsel)"
+        elif command_exists wl-copy; then
+            echo "$join_cmd" | wl-copy 2>/dev/null && \
+                ok "Join command copied to clipboard (wl-copy)"
+        elif command_exists pbcopy; then
+            echo "$join_cmd" | pbcopy 2>/dev/null && \
+                ok "Join command copied to clipboard (pbcopy)"
+        fi
+
+        ok "Join script saved to: ${join_script}"
     fi
 }
 
