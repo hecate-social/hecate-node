@@ -488,6 +488,27 @@ check_ollama() {
         # Extract just the version number, ignoring warnings
         ollama_version=$(ollama --version 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
         ok "Ollama installed: v${ollama_version:-unknown}"
+
+        # Ensure Ollama service is running
+        if ! curl -s http://localhost:11434/api/tags &>/dev/null; then
+            info "Starting Ollama service..."
+            if command_exists systemctl && systemctl is-enabled ollama &>/dev/null; then
+                sudo systemctl start ollama 2>/dev/null || true
+            else
+                # macOS or non-systemd - start in background
+                ollama serve > /dev/null 2>&1 &
+            fi
+            sleep 2
+
+            if curl -s http://localhost:11434/api/tags &>/dev/null; then
+                ok "Ollama service started"
+            else
+                warn "Could not start Ollama service"
+                echo "Try: sudo systemctl start ollama"
+            fi
+        else
+            ok "Ollama service is running"
+        fi
         return 0
     else
         return 1
