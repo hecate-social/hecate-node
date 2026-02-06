@@ -144,8 +144,7 @@ show_banner() {
     echo ""
     echo -e "${MAGENTA}${BOLD}    🔥🗝️🔥  H E C A T E  🔥🗝️🔥${NC}"
     echo ""
-    echo -e "${DIM}    European Decentralized AI Infrastructure${NC}"
-    echo -e "${DIM}    Now powered by k3s + GitOps${NC}"
+    echo -e "${DIM}    Powered by Macula${NC}"
     echo ""
 }
 
@@ -1121,7 +1120,7 @@ case "${1:-help}" in
         echo "  kubectl apply -k hecate/"
         ;;
     *)
-        echo "Hecate - European Decentralized AI Infrastructure"
+        echo "Hecate - Powered by Macula"
         echo ""
         echo "Usage: hecate <command>"
         echo ""
