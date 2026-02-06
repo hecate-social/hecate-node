@@ -61,7 +61,9 @@
 
 - name: Verify agent registered with server
   delegate_to: "{{ groups['server'][0] }}"
-  command: kubectl get node {{ inventory_hostname }}
+  # Use ansible_hostname (actual hostname) not inventory_hostname (inventory name)
+  # k3s registers nodes by their system hostname, not FQDN
+  command: kubectl get node {{ ansible_hostname }}
   register: node_status
   until: node_status.rc == 0
   retries: 12
