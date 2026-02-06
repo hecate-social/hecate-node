@@ -542,6 +542,34 @@ install_ollama() {
     fi
 
     ok "Ollama installed"
+
+    # Ensure Ollama service is running
+    info "Starting Ollama service..."
+    if command_exists systemctl && systemctl is-enabled ollama &>/dev/null; then
+        # Linux with systemd
+        sudo systemctl start ollama 2>/dev/null || true
+        sleep 2
+    else
+        # macOS or non-systemd Linux - start in background
+        if ! pgrep -x "ollama" > /dev/null 2>&1; then
+            ollama serve > /dev/null 2>&1 &
+            sleep 2
+        fi
+    fi
+
+    # Verify Ollama is responding
+    local retries=10
+    while [ $retries -gt 0 ]; do
+        if curl -s http://localhost:11434/api/tags &>/dev/null; then
+            ok "Ollama service is running"
+            return 0
+        fi
+        retries=$((retries - 1))
+        sleep 1
+    done
+
+    warn "Ollama installed but service may not be running"
+    echo "Try: sudo systemctl start ollama"
     return 0
 }
 
