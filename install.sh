@@ -659,24 +659,25 @@ select_feature_roles() {
     echo "This node will have: TUI + Services (default for ${K3S_ROLE})"
     echo ""
 
-    # Ask about AI/Ollama
-    if confirm "Enable AI features (LLM inference)?" "y"; then
-        ROLE_AI=true
+    # Ask about Ollama configuration
+    echo "Ollama Configuration (AI/LLM features):"
+    echo ""
+    echo -e "  ${BOLD}1)${NC} Local          ${DIM}- Install Ollama on this machine (recommended)${NC}"
+    echo -e "  ${BOLD}2)${NC} Remote         ${DIM}- Use Ollama on another server${NC}"
+    echo -e "  ${BOLD}3)${NC} Skip           ${DIM}- No AI features${NC}"
+    echo ""
+    echo -en "  Enter choice [1]: " > /dev/tty
+    read -r ollama_choice < /dev/tty
+    ollama_choice="${ollama_choice:-1}"
 
-        # Ask about Ollama location
-        echo ""
-        echo "Where is Ollama running?"
-        echo ""
-        echo -e "  ${BOLD}1)${NC} Local          ${DIM}- Install Ollama on this machine${NC}"
-        echo -e "  ${BOLD}2)${NC} Remote         ${DIM}- Ollama runs on another server${NC}"
-        echo ""
-        echo -en "  Enter choice [1]: " > /dev/tty
-        read -r ollama_choice < /dev/tty
-        ollama_choice="${ollama_choice:-1}"
-
-        if [ "$ollama_choice" = "2" ]; then
+    case "$ollama_choice" in
+        1)
+            ROLE_AI=true
+            ok "Will install Ollama locally"
+            ;;
+        2)
             echo ""
-            echo -en "  Ollama host (e.g., host00.lab:11434): " > /dev/tty
+            echo -en "  Ollama URL (e.g., 192.168.1.50 or host00.lab:11434): " > /dev/tty
             read -r ollama_host < /dev/tty
             if [ -n "$ollama_host" ]; then
                 # Add http:// if not present
@@ -690,14 +691,21 @@ select_feature_roles() {
                 OLLAMA_HOST="$ollama_host"
                 ROLE_AI=false  # Don't install Ollama locally
                 ok "Using remote Ollama: ${OLLAMA_HOST}"
+            else
+                warn "No URL provided, skipping AI features"
+                ROLE_AI=false
             fi
-        fi
-    fi
+            ;;
+        3|*)
+            ROLE_AI=false
+            info "AI features disabled"
+            ;;
+    esac
 
     echo ""
     local roles=("workstation" "services")
-    [ "$ROLE_AI" = true ] && roles+=("ai-provider (local)")
-    [ "$OLLAMA_HOST" != "http://localhost:11434" ] && roles+=("ai-client (${OLLAMA_HOST})")
+    [ "$ROLE_AI" = true ] && roles+=("ollama (local)")
+    [ "$OLLAMA_HOST" != "http://localhost:11434" ] && roles+=("ollama (${OLLAMA_HOST})")
     ok "Selected features: ${roles[*]}"
 }
 
