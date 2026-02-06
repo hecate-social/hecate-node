@@ -44,9 +44,12 @@ confirm() {
 command_exists() { command -v "$1" &>/dev/null; }
 
 echo ""
-echo -e "${RED}${BOLD}    H E C A T E   U N I N S T A L L${NC}"
+echo "    🇪🇺🇪🇺🇪🇺🇪🇺🇪🇺🇪🇺🇪🇺🇪🇺🇪🇺🇪🇺🇪🇺🇪🇺🇪🇺🇪🇺"
 echo ""
-echo -e "${DIM}The goddess prepares to depart...${NC}"
+echo -e "    ${RED}${BOLD}🔥🗝️🔥  H E C A T E  🔥🗝️🔥${NC}"
+echo -e "           ${DIM}U N I N S T A L L${NC}"
+echo ""
+echo "    🇪🇺🇪🇺🇪🇺🇪🇺🇪🇺🇪🇺🇪🇺🇪🇺🇪🇺🇪🇺🇪🇺🇪🇺🇪🇺🇪🇺"
 echo ""
 
 # -----------------------------------------------------------------------------
