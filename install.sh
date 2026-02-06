@@ -790,7 +790,7 @@ services:
   # Auto-update via Watchtower
   # Manual update also available: hecate update
   watchtower:
-    image: lscr.io/linuxserver/watchtower
+    image: ghcr.io/containrrr/watchtower
     container_name: hecate-watchtower
     restart: unless-stopped
     volumes:
