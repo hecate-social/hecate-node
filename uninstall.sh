@@ -381,7 +381,7 @@ if command_exists ollama || [ -d "$OLLAMA_MODELS_DIR" ]; then
         sleep 1
 
         # Find and remove Ollama binary (could be in different locations)
-        local ollama_bin=""
+        ollama_bin=""
         for path in /usr/local/bin/ollama /usr/bin/ollama; do
             if [ -f "$path" ]; then
                 ollama_bin="$path"
@@ -401,7 +401,7 @@ if command_exists ollama || [ -d "$OLLAMA_MODELS_DIR" ]; then
         fi
 
         # Remove Ollama service files
-        local removed_service=false
+        removed_service=false
         if [ -f /etc/systemd/system/ollama.service ]; then
             sudo rm -f /etc/systemd/system/ollama.service
             removed_service=true
@@ -417,10 +417,10 @@ if command_exists ollama || [ -d "$OLLAMA_MODELS_DIR" ]; then
         fi
 
         # Remove models from all possible locations
-        local removed_models=false
+        removed_models=false
         for models_dir in "${HOME}/.ollama" "/usr/share/ollama" "/var/lib/ollama"; do
             if [ -d "$models_dir" ]; then
-                local dir_size
+                dir_size=""
                 dir_size=$(du -sh "$models_dir" 2>/dev/null | cut -f1 || echo "unknown")
                 info "Removing ${models_dir} (${dir_size})..."
                 if sudo rm -rf "$models_dir"; then
