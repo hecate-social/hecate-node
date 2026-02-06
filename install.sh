@@ -778,7 +778,28 @@ install_k3s() {
     done
 
     if [ $retries -eq 0 ]; then
-        fatal "k3s failed to start"
+        error "k3s failed to start"
+        echo ""
+        echo -e "${YELLOW}${BOLD}Recent logs:${NC}"
+        echo ""
+        if [ "$K3S_ROLE" = "agent" ]; then
+            sudo journalctl -u k3s-agent -n 20 --no-pager 2>/dev/null || true
+        else
+            sudo journalctl -u k3s -n 20 --no-pager 2>/dev/null || true
+        fi
+        echo ""
+        echo -e "${CYAN}Troubleshooting:${NC}"
+        if [ "$K3S_ROLE" = "agent" ]; then
+            echo "  • Check server URL is correct and reachable"
+            echo "  • Check token matches: sudo cat /var/lib/rancher/k3s/server/node-token"
+            echo "  • Check server firewall allows port 6443"
+            echo "  • Verify server is running: systemctl status k3s"
+        else
+            echo "  • Check: sudo journalctl -u k3s -f"
+            echo "  • Verify ports are open: 6443, 8472, 10250"
+        fi
+        echo ""
+        fatal "k3s installation failed"
     fi
 
     # Setup kubeconfig for non-root user
