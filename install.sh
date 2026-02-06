@@ -893,6 +893,58 @@ install_ollama() {
     ok "Ollama service started"
 }
 
+select_ollama_models() {
+    if ! command_exists ollama; then
+        return
+    fi
+
+    echo ""
+    echo "Which models would you like to pull?"
+    echo ""
+    echo -e "  ${BOLD}1)${NC} llama3.2        ${DIM}- 2GB, fast general-purpose${NC}"
+    echo -e "  ${BOLD}2)${NC} llama3.2:1b     ${DIM}- 1GB, lightweight${NC}"
+    echo -e "  ${BOLD}3)${NC} mistral         ${DIM}- 4GB, good reasoning${NC}"
+    echo -e "  ${BOLD}4)${NC} codellama       ${DIM}- 4GB, code generation${NC}"
+    echo -e "  ${BOLD}5)${NC} phi3            ${DIM}- 2GB, Microsoft's compact model${NC}"
+    echo -e "  ${BOLD}6)${NC} gemma2          ${DIM}- 5GB, Google's latest${NC}"
+    echo -e "  ${BOLD}7)${NC} qwen2.5         ${DIM}- 4GB, multilingual${NC}"
+    echo -e "  ${BOLD}8)${NC} deepseek-r1     ${DIM}- 4GB, reasoning model${NC}"
+    echo -e "  ${BOLD}s)${NC} Skip            ${DIM}- Don't pull any models${NC}"
+    echo ""
+    echo -e "${DIM}Enter choices separated by spaces (e.g., 1 3 4):${NC}"
+    echo -en "  > " > /dev/tty
+    read -r model_choices < /dev/tty
+
+    if [ -z "$model_choices" ] || [ "$model_choices" = "s" ] || [ "$model_choices" = "S" ]; then
+        info "Skipping model download"
+        return
+    fi
+
+    for choice in $model_choices; do
+        case "$choice" in
+            1) pull_model "llama3.2" ;;
+            2) pull_model "llama3.2:1b" ;;
+            3) pull_model "mistral" ;;
+            4) pull_model "codellama" ;;
+            5) pull_model "phi3" ;;
+            6) pull_model "gemma2" ;;
+            7) pull_model "qwen2.5" ;;
+            8) pull_model "deepseek-r1" ;;
+            *) warn "Unknown choice: $choice" ;;
+        esac
+    done
+}
+
+pull_model() {
+    local model="$1"
+    info "Pulling ${model}..."
+    if ollama pull "$model"; then
+        ok "${model} ready"
+    else
+        warn "Failed to pull ${model}"
+    fi
+}
+
 setup_ollama() {
     if [ "$ROLE_AI" = false ]; then
         return
@@ -902,12 +954,7 @@ setup_ollama() {
         install_ollama
     fi
 
-    # Pull a default model
-    if command_exists ollama && confirm "Pull llama3.2 model (2GB)?" "y"; then
-        info "Pulling llama3.2..."
-        ollama pull llama3.2
-        ok "Model ready"
-    fi
+    select_ollama_models
 }
 
 # -----------------------------------------------------------------------------
@@ -1395,12 +1442,7 @@ EOF
         warn "Ollama did not start in time, check: sudo journalctl -u ollama"
     fi
 
-    # Pull a default model
-    if confirm "Pull llama3.2 model (2GB)?" "y"; then
-        info "Pulling llama3.2..."
-        ollama pull llama3.2
-        ok "Model ready"
-    fi
+    select_ollama_models
 }
 
 show_inference_summary() {
