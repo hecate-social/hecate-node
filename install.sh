@@ -997,7 +997,8 @@ install_ollama() {
     fi
 
     info "Running Ollama install script..."
-    curl -fsSL https://ollama.com/install.sh | sh
+    # Run Ollama installer (disable strict mode - their script has VERSION_ID bug on Arch)
+        ( set +eu; curl -fsSL https://ollama.com/install.sh | sh ) || true
 
     if ! command_exists ollama; then
         warn "Ollama installation failed"
@@ -1568,7 +1569,8 @@ install_ollama_server() {
         ok "Ollama already installed: ${ollama_bin}"
     else
         info "Installing Ollama..."
-        curl -fsSL https://ollama.com/install.sh | sh
+        # Run Ollama installer (disable strict mode - their script has VERSION_ID bug on Arch)
+        ( set +eu; curl -fsSL https://ollama.com/install.sh | sh ) || true
         ollama_bin=$(command -v ollama)
     fi
 
