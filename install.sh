@@ -944,36 +944,40 @@ install_flux() {
 # GitOps Repository Setup
 # -----------------------------------------------------------------------------
 
-HECATE_GITOPS_REPO="https://github.com/hecate-social/hecate-gitops.git"
+# GitOps repository - can be overridden with HECATE_GITOPS_URL env var
+# For customization, fork hecate-gitops and set HECATE_GITOPS_URL to your fork
+HECATE_GITOPS_SEED="https://github.com/hecate-social/hecate-gitops.git"
+HECATE_GITOPS_URL="${HECATE_GITOPS_URL:-https://github.com/hecate-social/hecate-gitops}"
 
 setup_gitops_repo() {
     section "Setting up GitOps Repository"
 
-    # Clone or update hecate-gitops
+    # Clone or update hecate-gitops seed
     if [ -d "${GITOPS_DIR}/.git" ]; then
         info "GitOps repo exists, pulling latest..."
         cd "${GITOPS_DIR}"
         git pull --ff-only origin main 2>/dev/null || true
     else
-        info "Cloning hecate-gitops..."
+        info "Cloning hecate-gitops seed..."
         rm -rf "${GITOPS_DIR}"
-        git clone "${HECATE_GITOPS_REPO}" "${GITOPS_DIR}"
+        git clone "${HECATE_GITOPS_SEED}" "${GITOPS_DIR}"
         cd "${GITOPS_DIR}"
     fi
 
     ok "GitOps repository ready at ${GITOPS_DIR}"
 
-    # Update FluxCD source to point to local path
+    # Update FluxCD source to point to remote URL
     update_flux_source
 
     # Update hardware configuration with detected values
     update_hardware_config
 
-    # Commit local changes
+    # Commit local changes (won't push - user must set up their own remote)
     git add -A
     git commit -m "Configure for local cluster" 2>/dev/null || true
 
     ok "GitOps configuration complete"
+    info "To customize: fork hecate-gitops, update flux-system/gotk-sync.yaml, push to your fork"
 }
 
 update_flux_source() {
@@ -981,7 +985,15 @@ update_flux_source() {
 
     cat > flux-system/gotk-sync.yaml << EOF
 # FluxCD GitRepository and Kustomization
-# Points to this local repository
+#
+# This points to: ${HECATE_GITOPS_URL}
+#
+# To use your own fork:
+# 1. Fork hecate-social/hecate-gitops on GitHub
+# 2. Update the URL below to your fork
+# 3. Push changes to your fork
+# 4. Re-apply: kubectl apply -f flux-system/gotk-sync.yaml
+#
 ---
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: GitRepository
@@ -990,7 +1002,7 @@ metadata:
   namespace: flux-system
 spec:
   interval: 1m
-  url: file://${GITOPS_DIR}
+  url: ${HECATE_GITOPS_URL}
   ref:
     branch: main
 ---
@@ -1008,7 +1020,7 @@ spec:
   prune: true
 EOF
 
-    ok "FluxCD configured for local repository"
+    ok "FluxCD configured to watch: ${HECATE_GITOPS_URL}"
 }
 
 update_hardware_config() {
