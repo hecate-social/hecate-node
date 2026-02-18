@@ -7,6 +7,7 @@
 #   - podman (rootless containers)
 #   - hecate-daemon (via Podman Quadlet)
 #   - hecate-reconciler (watches ~/.hecate/gitops/)
+#   - hecate CLI (from hecate-cli releases)
 #   - hecate-web (Tauri desktop app, workstations only)
 #   - Ollama (optional, for local LLM)
 #
@@ -1419,119 +1420,48 @@ install_web() {
 # CLI Wrapper
 # -----------------------------------------------------------------------------
 
-install_cli_wrapper() {
-    section "Installing CLI Wrapper"
+install_cli() {
+    section "Installing Hecate CLI"
 
-    cat > "${BIN_DIR}/hecate" << 'WRAPPER'
-#!/usr/bin/env bash
-# Hecate CLI wrapper — manages hecate via systemd + podman
-set -euo pipefail
+    local cli_version="${HECATE_CLI_VERSION:-v0.1.0}"
+    local cli_url="${REPO_BASE}/hecate-cli/releases/download/${cli_version}/hecate"
+    local registry_url="${REPO_BASE}/hecate-cli/releases/download/${cli_version}/registry.json"
+    local registry_dir="${HOME}/.local/share/hecate"
 
-HECATE_DIR="${HECATE_DIR:-$HOME/.hecate}"
-SOCKET="${HECATE_DIR}/hecate-daemon/sockets/api.sock"
+    mkdir -p "${BIN_DIR}" "${registry_dir}"
 
-case "${1:-help}" in
-    start)
-        echo "Starting Hecate daemon..."
-        systemctl --user start hecate-daemon.service
-        echo "Started."
-        ;;
-    stop)
-        echo "Stopping Hecate daemon..."
-        systemctl --user stop hecate-daemon.service
-        echo "Stopped."
-        ;;
-    restart)
-        echo "Restarting Hecate daemon..."
-        systemctl --user restart hecate-daemon.service
-        echo "Restarted."
-        ;;
-    status)
-        echo "=== Hecate Services ==="
-        echo ""
-        systemctl --user list-units 'hecate-*' --no-pager 2>/dev/null || true
-        echo ""
-        if [ -S "$SOCKET" ]; then
-            echo "Daemon socket: ${SOCKET} (ready)"
-        else
-            echo "Daemon socket: ${SOCKET} (not found)"
-        fi
-        ;;
-    logs)
-        journalctl --user -u hecate-daemon -f "${@:2}"
-        ;;
-    update)
-        echo "Pulling latest images..."
-        podman auto-update 2>/dev/null || true
-        echo "Updated."
-        ;;
-    health)
-        if [ -S "$SOCKET" ]; then
-            curl -s --unix-socket "$SOCKET" http://localhost/health
-            echo ""
-        else
-            echo "Daemon socket not found: ${SOCKET}"
-            exit 1
-        fi
-        ;;
-    identity)
-        if [ -S "$SOCKET" ]; then
-            curl -s --unix-socket "$SOCKET" http://localhost/identity
-            echo ""
-        else
-            echo "Daemon socket not found: ${SOCKET}"
-            exit 1
-        fi
-        ;;
-    reconcile)
-        echo "Running reconciliation..."
-        hecate-reconciler --once
-        ;;
-    install)
-        plugin="${2:-}"
-        if [ -z "$plugin" ]; then
-            echo "Usage: hecate install <plugin>"
-            echo ""
-            echo "Available plugins:"
-            echo "  trader   - Trading agent"
-            echo "  martha   - AI agent"
-            exit 1
-        fi
-        echo "Installing ${plugin}..."
-        # Copy plugin Quadlet files to gitops/apps/
-        # The reconciler will pick them up automatically
-        echo "Copy plugin .container files to ${HECATE_DIR}/gitops/apps/"
-        echo "The reconciler will install them automatically."
-        ;;
-    *)
-        echo "Hecate — Powered by Macula"
-        echo ""
-        echo "Usage: hecate <command>"
-        echo ""
-        echo "Commands:"
-        echo "  start       Start daemon"
-        echo "  stop        Stop daemon"
-        echo "  restart     Restart daemon"
-        echo "  status      Show service status"
-        echo "  logs        View daemon logs"
-        echo "  update      Pull latest images"
-        echo "  health      Check daemon health"
-        echo "  identity    Show node identity"
-        echo "  reconcile   Run manual reconciliation"
-        echo ""
-        echo "Desktop:"
-        echo "  hecate-web  Launch desktop app"
-        echo ""
-        echo "Data:    ${HECATE_DIR}"
-        echo "GitOps:  ${HECATE_DIR}/gitops"
-        echo ""
-        ;;
-esac
-WRAPPER
+    # Try downloading from GitHub releases first
+    if download_file "${cli_url}" "${BIN_DIR}/hecate" 2>/dev/null; then
+        chmod +x "${BIN_DIR}/hecate"
+        download_file "${registry_url}" "${registry_dir}/registry.json" 2>/dev/null || true
+        ok "Hecate CLI ${cli_version} installed from release"
+        return 0
+    fi
 
-    chmod +x "${BIN_DIR}/hecate"
+    # Fallback: clone the repo and copy the script
+    info "Release not available, installing from source..."
+    local tmp_dir
+    tmp_dir=$(mktemp -d)
+    if git clone --depth 1 "${REPO_BASE}/hecate-cli.git" "${tmp_dir}/hecate-cli" 2>/dev/null; then
+        cp "${tmp_dir}/hecate-cli/scripts/hecate.sh" "${BIN_DIR}/hecate"
+        chmod +x "${BIN_DIR}/hecate"
+        cp "${tmp_dir}/hecate-cli/plugins/registry.json" "${registry_dir}/registry.json" 2>/dev/null || true
+        rm -rf "${tmp_dir}"
+        ok "Hecate CLI installed from source"
+        return 0
+    fi
+    rm -rf "${tmp_dir}"
 
-    ok "CLI wrapper installed"
+    # Last resort: seed from gitops clone if available
+    if [[ -f "${GITOPS_DIR}/../hecate-cli/scripts/hecate.sh" ]]; then
+        cp "${GITOPS_DIR}/../hecate-cli/scripts/hecate.sh" "${BIN_DIR}/hecate"
+        chmod +x "${BIN_DIR}/hecate"
+        ok "Hecate CLI installed from local source"
+        return 0
+    fi
+
+    warn "Could not download hecate CLI. Install manually:"
+    warn "  ${REPO_BASE}/hecate-cli"
 }
 
 # -----------------------------------------------------------------------------
@@ -1577,7 +1507,7 @@ show_summary() {
     echo -e "  IP:       ${local_ip}"
     echo ""
     echo -e "${BOLD}Components:${NC}"
-    echo -e "  ${CYAN}hecate${NC}            - CLI wrapper"
+    echo -e "  ${CYAN}hecate${NC}            - CLI (node management + plugins)"
     echo -e "  ${CYAN}hecate-reconciler${NC} - GitOps reconciler"
     [ "$ROLE_WORKSTATION" = true ] && echo -e "  ${CYAN}hecate-web${NC}        - Desktop app"
     if [ "$ROLE_AI" = true ] && command_exists ollama; then
@@ -1678,7 +1608,7 @@ main() {
     deploy_hecate
     setup_ollama
     install_web
-    install_cli_wrapper
+    install_cli
     setup_path
 
     show_summary
