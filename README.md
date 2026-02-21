@@ -13,7 +13,7 @@
 
 | Method | Use Case | How |
 |--------|----------|-----|
-| **NixOS Flake** | Bootable USB/ISO/SD card | `nix build .#iso-standalone` |
+| **NixOS Flake** | Bootable USB/ISO/SD card | `nix build .#iso` |
 | **install.sh** | Existing Linux machine | `curl -fsSL https://hecate.io/install.sh \| bash` |
 
 Both produce the same result: podman + reconciler + gitops + hecate-daemon.
@@ -26,24 +26,17 @@ curl -fsSL https://hecate.io/install.sh | bash
 
 ## NixOS Flake (Bootable Media)
 
-Build a bootable USB/ISO image:
+Build a single bootable USB/ISO image. The firstboot wizard handles role selection on first boot.
 
 ```bash
-# Standalone (full stack)
-nix build .#iso-standalone
+# Build the ISO
+nix build .#iso
 sudo dd if=result/iso/nixos-*.iso of=/dev/sdX bs=4M status=progress
 
-# Cluster member
-nix build .#iso-cluster
-
-# Inference (Ollama only)
-nix build .#iso-inference
+# Or download a pre-built ISO from GitHub releases
 
 # Run VM integration tests
 nix flake check
-
-# Interactive VM testing
-nix run .#checks.x86_64-linux.boot-test.driverInteractive
 ```
 
 ### NixOS Configuration

@@ -1,24 +1,16 @@
-name: Build HecateOS ISOs
+name: Build HecateOS
 
 on:
   push:
     tags:
       - 'v*'
   workflow_dispatch:
-    inputs:
-      roles:
-        description: 'Roles to build (comma-separated: standalone,cluster,inference)'
-        required: false
-        default: 'standalone,cluster,inference'
 
 permissions:
   contents: write
 
 jobs:
   build-iso:
-    strategy:
-      matrix:
-        role: [standalone, cluster, inference]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -31,20 +23,23 @@ jobs:
           extra_nix_config: |
             experimental-features = nix-command flakes
 
-      - name: Build ${{ matrix.role }} ISO
-        run: nix build .#iso-${{ matrix.role }} --out-link result-${{ matrix.role }}
+      - name: Build HecateOS ISO
+        run: nix build .#iso --out-link result
 
       - name: Rename ISO
         run: |
-          iso_file=$(find result-${{ matrix.role }}/iso -name '*.iso' | head -1)
+          iso_file=$(find result/iso -name '*.iso' | head -1)
           version="${GITHUB_REF_NAME:-dev}"
-          cp "$iso_file" "hecate-${{ matrix.role }}-${version}.iso"
+          cp "$iso_file" "hecate-os-${version}.iso"
+          sha256sum "hecate-os-${version}.iso" > SHA256SUMS
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: hecate-${{ matrix.role }}-iso
-          path: hecate-${{ matrix.role }}-*.iso
+          name: hecate-os-iso
+          path: |
+            hecate-os-*.iso
+            SHA256SUMS
           retention-days: 7
 
   release:
@@ -52,13 +47,10 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
-      - name: Download all ISOs
+      - name: Download ISO
         uses: actions/download-artifact@v4
         with:
-          merge-multiple: true
-
-      - name: Generate checksums
-        run: sha256sum hecate-*.iso > SHA256SUMS
+          name: hecate-os-iso
 
       - name: Create release
         uses: softprops/action-gh-release@v2
@@ -67,18 +59,21 @@ jobs:
           body: |
             ## HecateOS ${{ github.ref_name }}
 
-            Bootable ISO images for Hecate nodes.
+            Single bootable ISO with guided setup. Boot from USB, the firstboot
+            wizard walks you through role selection and configuration.
 
-            | Image | Role | Use Case |
-            |-------|------|----------|
-            | `hecate-standalone-*.iso` | Standalone | Full stack on one machine |
-            | `hecate-cluster-*.iso` | Cluster | BEAM cluster member |
-            | `hecate-inference-*.iso` | Inference | Ollama-only GPU server |
+            ### Roles (chosen during firstboot)
+
+            | Role | What It Does |
+            |------|-------------|
+            | **Standalone** | Full stack on one machine |
+            | **Cluster** | BEAM cluster member |
+            | **Inference** | Ollama-only GPU server |
 
             ### Write to USB
 
             ```bash
-            sudo dd if=hecate-standalone-${{ github.ref_name }}.iso of=/dev/sdX bs=4M status=progress
+            sudo dd if=hecate-os-${{ github.ref_name }}.iso of=/dev/sdX bs=4M status=progress
             ```
 
             ### Verify
@@ -87,6 +82,6 @@ jobs:
             sha256sum -c SHA256SUMS
             ```
           files: |
-            hecate-*.iso
+            hecate-os-*.iso
             SHA256SUMS
           generate_release_notes: true

@@ -17,28 +17,6 @@
           ] ++ extraModules;
         };
 
-      # Helper to build an ISO from a NixOS configuration
-      mkIso = { role, system ? "x86_64-linux", extraModules ? [ ] }:
-        let
-          isoSystem = nixpkgs.lib.nixosSystem {
-            inherit system;
-            modules = [
-              (./configurations + "/${role}.nix")
-              (./hardware + "/generic-x86.nix")
-              "${nixpkgs}/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix"
-              {
-                # ISO-specific overrides
-                isoImage.isoBaseName = "hecate-${role}";
-                isoImage.volumeID = "HECATE_${nixpkgs.lib.toUpper role}";
-
-                # Don't require EFI vars on live media
-                boot.loader.efi.canTouchEfiVariables = nixpkgs.lib.mkForce false;
-              }
-            ] ++ extraModules;
-          };
-        in
-        isoSystem.config.system.build.isoImage;
-
       pkgsFor = system: import nixpkgs { inherit system; };
     in
     {
@@ -87,7 +65,6 @@
               cookie = "hecate_cluster_secret";
               peers = [ "beam00.lab" "beam02.lab" "beam03.lab" ];
             };
-            # beam01 has 2x HDD
             fileSystems."/bulk1" = {
               device = "/dev/disk/by-label/bulk1";
               fsType = "xfs";
@@ -131,12 +108,31 @@
         };
       };
 
-      # ── Packages (ISO images) ──────────────────────────────────────────
-      # Use: nix build .#iso-standalone
+      # ── Packages ───────────────────────────────────────────────────────
       packages.x86_64-linux = {
-        iso-standalone = mkIso { role = "standalone"; };
-        iso-cluster = mkIso { role = "cluster"; };
-        iso-inference = mkIso { role = "inference"; };
+        # Single unified ISO — firstboot wizard handles role selection
+        # Use: nix build .#iso
+        iso = let
+          isoSystem = nixpkgs.lib.nixosSystem {
+            system = "x86_64-linux";
+            modules = [
+              ./configurations/standalone.nix
+              ./hardware/generic-x86.nix
+              "${nixpkgs}/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix"
+              {
+                isoImage.isoBaseName = "hecate-os";
+                isoImage.volumeID = "HECATE_OS";
+                boot.loader.efi.canTouchEfiVariables = nixpkgs.lib.mkForce false;
+
+                # ISO ships with everything; firstboot wizard configures the role
+                services.hecate.firstboot.enable = nixpkgs.lib.mkForce true;
+                services.hecate.ollama.enable = nixpkgs.lib.mkForce true;
+              }
+            ];
+          };
+        in isoSystem.config.system.build.isoImage;
+
+        default = self.packages.x86_64-linux.iso;
 
         hecate-reconciler = (pkgsFor "x86_64-linux").callPackage ./packages/hecate-reconciler.nix { };
         hecate-cli = (pkgsFor "x86_64-linux").callPackage ./packages/hecate-cli.nix { };
